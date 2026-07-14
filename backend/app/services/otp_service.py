@@ -84,3 +84,5 @@ async def send_otp_email(email: str, code: str, purpose: str = "verify"):
     except Exception as e:
         print(f"❌ Email send failed: {e}")
         raise
+
+

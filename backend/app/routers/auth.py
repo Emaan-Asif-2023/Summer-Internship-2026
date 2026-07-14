@@ -31,6 +31,7 @@ async def send_otp(data: SendOtpRequest, db=Depends(get_database)):
         validate_email(email, check_deliverability=True)
     except EmailNotValidError as e:
         raise HTTPException(status_code=400, detail=f"Invalid or undeliverable email address: {str(e)}")
+   
 
     existing = await db.users.find_one({"email": email})
     if existing:
