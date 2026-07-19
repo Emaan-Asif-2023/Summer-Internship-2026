@@ -29,6 +29,7 @@ class UserResponse(BaseModel):
     github_url: Optional[str] = None
     linkedin_url: Optional[str] = None
     avatar_url: Optional[str] = None
+    profile_completed: Optional[bool] = False
     created_at: datetime
 
 
@@ -44,6 +45,7 @@ class UpdateProfileRequest(BaseModel):
     open_to_team: Optional[bool] = True
     github_url: Optional[str] = None
     linkedin_url: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 
 class ChangePasswordRequest(BaseModel):

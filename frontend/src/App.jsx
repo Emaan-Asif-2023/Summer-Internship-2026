@@ -62,6 +62,8 @@ import SignUp from './pages/SignUp.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import DashboardLayout from './components/homelayout/dashboardLayout.jsx'
 import Home from './pages/Home.jsx'
+import CompleteProfile from './pages/CompleteProfile.jsx'
+import Profile from './pages/Profile.jsx'
 
 function ComingSoon({ title }) {
   return (
@@ -97,6 +99,7 @@ function App() {
         <Routes>
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfile /></ProtectedRoute>} />
 
           <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
             <Route index element={<Home />} />
@@ -119,7 +122,7 @@ function App() {
           </Route>
 
           <Route path="/profile" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route index element={<ComingSoon title="Profile" />} />
+            <Route index element={<Profile />} />
           </Route>
 
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

@@ -443,33 +443,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-
-      {/* ── Getting Started (for new users) ── */}
-      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6 sm:p-8 border border-indigo-100">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-          <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0">
-            <Zap size={22} className="text-primary" />
-          </div>
-          <div className="flex-1">
-            <h3
-              className="text-base font-bold text-slate-800 mb-1"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              Get the most out of TeamSync
-            </h3>
-            <p className="text-sm text-slate-500">
-              Complete your profile with skills and interests to get better teammate recommendations and project matches.
-            </p>
-          </div>
-          <button
-            onClick={() => navigate('/profile')}
-            className="shrink-0 px-5 py-2.5 bg-primary hover:bg-primary-dark text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-2"
-          >
-            Complete Profile
-            <ArrowRight size={14} />
-          </button>
-        </div>
-      </div>
     </div>
   )
 }

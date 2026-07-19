@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import {
@@ -21,6 +22,31 @@ export default function Sidebar() {
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : 'U'
+
+  const renderAvatar = () => {
+    if (user?.avatar_url) {
+      if (user.avatar_url.startsWith('preset:')) {
+        const gradient = user.avatar_url.split('preset:')[1]
+        return (
+          <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm`}>
+            {initials}
+          </div>
+        )
+      }
+      return (
+        <img
+          src={user.avatar_url}
+          alt={user.name || 'User'}
+          className="w-9 h-9 rounded-full object-cover border border-slate-100 shrink-0 shadow-sm"
+        />
+      )
+    }
+    return (
+      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm">
+        {initials}
+      </div>
+    )
+  }
 
   return (
     <aside className="hidden lg:flex flex-col w-64 h-screen bg-white border-r border-slate-200 fixed left-0 top-0 z-30">
@@ -69,25 +95,26 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* User section */}
-      <div className="px-3 py-4 border-t border-slate-100 shrink-0">
-        <div className="flex items-center gap-3 px-3 py-2 mb-1">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-xs font-bold shrink-0">
-            {initials}
-          </div>
+      {/* User section with logout popover menu */}
+      <div className="px-3 py-4 border-t border-slate-100 shrink-0 relative group">
+        <div className="absolute bottom-16 left-3 right-3 bg-white border border-slate-100 rounded-2xl shadow-xl p-1.5 z-40 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 origin-bottom ease-out">
+          <button
+            onClick={logout}
+            className="flex items-center gap-2.5 w-full px-3 py-2 text-red-600 hover:bg-red-50 rounded-xl text-xs font-bold transition-colors"
+          >
+            <LogOut size={14} />
+            Log Out
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3 w-full px-3 py-2.5 rounded-2xl text-left border border-transparent hover:bg-slate-50 transition-all cursor-pointer">
+          {renderAvatar()}
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-slate-800 truncate">{user?.name}</p>
-            <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+            <p className="text-xs font-bold text-slate-800 truncate">{user?.name}</p>
+            <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
           </div>
         </div>
-        <button
-          onClick={logout}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
-        >
-          <LogOut size={18} />
-          Sign Out
-        </button>
       </div>
     </aside>
   )
-}
+}

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from datetime import datetime
 from pydantic import BaseModel, EmailStr
-from app.models.user import UserCreate, UserLogin, UserResponse, ResetPasswordRequest
+from app.models.user import UserCreate, UserLogin, UserResponse, ResetPasswordRequest, ChangePasswordRequest
 from app.services.auth_service import hash_password, verify_password, create_access_token
 from app.services.otp_service import store_otp, verify_otp, send_otp_email, _otp_store
 from app.database import get_database
@@ -110,6 +110,7 @@ def _user_response(user: dict) -> UserResponse:
         github_url=user.get("github_url"),
         linkedin_url=user.get("linkedin_url"),
         avatar_url=user.get("avatar_url"),
+        profile_completed=user.get("profile_completed", False),
         created_at=user["created_at"],
     )
 
@@ -138,6 +139,7 @@ async def register(user_data: UserCreate, db=Depends(get_database)):
         "github_url": None,
         "linkedin_url": None,
         "avatar_url": None,
+        "profile_completed": False,
         "auth_provider": "local",
     }
     result = await db.users.insert_one(new_user)
@@ -160,3 +162,22 @@ async def login(user_data: UserLogin, db=Depends(get_database)):
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: dict = Depends(get_current_user)):
     return _user_response(current_user)
+
+
+@router.post("/change-password")
+async def change_password(
+    data: ChangePasswordRequest,
+    current_user: dict = Depends(get_current_user),
+    db=Depends(get_database)
+):
+    if not verify_password(data.current_password, current_user["hashed_password"]):
+        raise HTTPException(status_code=400, detail="Incorrect current password")
+    if len(data.new_password) < 8:
+        raise HTTPException(status_code=400, detail="New password must be at least 8 characters")
+    
+    await db.users.update_one(
+        {"_id": current_user["_id"]},
+        {"$set": {"hashed_password": hash_password(data.new_password)}}
+    )
+    return {"message": "Password changed successfully"}
+
