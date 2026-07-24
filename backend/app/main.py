@@ -1,18 +1,19 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
 import traceback
 import sys
 import io
 
-# Fix Windows console encoding
+
 if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 from app.database import connect_db, close_db, get_database, create_indexes
 from app.config import settings
-from app.routers import auth, users
+from app.routers import auth, users, discover
 
 app = FastAPI(title="TeamSync API")
 
@@ -42,10 +43,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Routers
 app.include_router(auth.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
-
+app.include_router(discover.router, prefix="/api")
 
 @app.on_event("startup")
 async def startup_event():

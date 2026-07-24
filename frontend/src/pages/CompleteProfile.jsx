@@ -8,7 +8,6 @@ import {
   Github, Linkedin, Info, User, Check, Briefcase, Clock, X
 } from 'lucide-react'
 
-// Predefined cool avatar illustration colors/options
 const PRESET_AVATARS = [
   'from-indigo-400 to-purple-500',
   'from-emerald-400 to-teal-500',
@@ -121,7 +120,7 @@ export default function CompleteProfile() {
   const [availability, setAvailability] = useState(AVAILABILITY_OPTIONS[1])
   const [openToTeam, setOpenToTeam] = useState(true)
 
-  const [githubUrl, setGithubUrl] = useState('')
+  const [gitHubUrl, setGitHubUrl] = useState('')
   const [linkedinUrl, setLinkedinUrl] = useState('')
 
   // Computed initials
@@ -220,7 +219,7 @@ export default function CompleteProfile() {
       roles,
       availability,
       open_to_team: openToTeam,
-      github_url: githubUrl,
+      gitHub_url: gitHubUrl,
       linkedin_url: linkedinUrl,
       avatar_url: avatarUrl
     }
@@ -679,8 +678,8 @@ export default function CompleteProfile() {
                 </label>
                 <input
                   type="url"
-                  value={githubUrl}
-                  onChange={(e) => setGithubUrl(e.target.value)}
+                  value={gitHubUrl}
+                  onChange={(e) => setGitHubUrl(e.target.value)}
                   placeholder="https://github.com/your-username"
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
