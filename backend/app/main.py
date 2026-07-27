@@ -13,7 +13,7 @@ if sys.platform == "win32":
 
 from app.database import connect_db, close_db, get_database, create_indexes
 from app.config import settings
-from app.routers import auth, users, discover, connections
+from app.routers import auth, users, discover, connections, projects
 
 app = FastAPI(title="TeamSync API")
 
@@ -47,6 +47,7 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(discover.router, prefix="/api")
 app.include_router(connections.router, prefix="/api")
+app.include_router(projects.router, prefix="/api")
 
 @app.on_event("startup")
 async def startup_event():
