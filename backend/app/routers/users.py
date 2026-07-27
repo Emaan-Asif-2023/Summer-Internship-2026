@@ -14,6 +14,8 @@ def _user_response(user: dict) -> UserResponse:
         name=user["name"],
         bio=user.get("bio", "") or "",
         department=user.get("department", "") or "",
+        university=user.get("university", "") or "",
+        semester=user.get("semester"),
         year_of_study=user.get("year_of_study"),
         skills=user.get("skills", []),
         interests=user.get("interests", []),
@@ -38,6 +40,8 @@ async def update_profile(
         "name": data.name.strip(),
         "bio": (data.bio or "").strip(),
         "department": (data.department or "").strip(),
+        "university": (data.university or "").strip(),
+        "semester": data.semester,
         "year_of_study": data.year_of_study,
         "skills": [s.strip() for s in data.skills if s.strip()],
         "interests": [i.strip() for i in data.interests if i.strip()],
@@ -55,6 +59,8 @@ async def update_profile(
         raise HTTPException(status_code=400, detail="Name cannot be empty")
     if not update_data["department"]:
         raise HTTPException(status_code=400, detail="Department is required")
+    if not update_data["university"]:
+        raise HTTPException(status_code=400, detail="University/College is required")
     if not update_data["skills"]:
         raise HTTPException(status_code=400, detail="Please select at least one skill")
 
@@ -81,4 +87,22 @@ async def delete_account(
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": "Account deleted successfully"}
+
+
+@router.get("/{user_id}", response_model=UserResponse)
+async def get_user_profile(
+    user_id: str,
+    current_user: dict = Depends(get_current_user),
+    db=Depends(get_database)
+):
+    try:
+        obj_id = ObjectId(user_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid user_id format")
+
+    user = await db.users.find_one({"_id": obj_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return _user_response(user)
 

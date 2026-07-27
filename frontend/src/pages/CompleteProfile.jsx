@@ -93,6 +93,77 @@ const AVAILABILITY_OPTIONS = [
 ]
 
 
+const PAKISTAN_UNIVERSITIES = [
+  'Aga Khan University (AKU)',
+  'Air University',
+  'Allama Iqbal Medical College',
+  'Bahria University',
+  'Bahauddin Zakariya University',
+  'Balochistan University of Engineering and Technology',
+  'Balochistan University of Information Technology, Engineering and Management Sciences (BUITEMS)',
+  'Baqai Medical University',
+  'Capital University of Science and Technology (CUST)',
+  'CECOS University of Information Technology and Emerging Sciences',
+  'COMMECS Institute of Business and Emerging Sciences',
+  'COMSATS University Islamabad',
+  'Dadabhoy Institute of Higher Education',
+  'Dawood University of Engineering & Technology',
+  'Dow University of Health Sciences (DUHS)',
+  'FAST - National University of Computer and Emerging Sciences (FAST-NUCES)',
+  'GIFT University',
+  'Ghulam Ishaq Khan Institute of Engineering Sciences and Technology (GIKI)',
+  'Government College University, Faisalabad (GCUF)',
+  'Government College University, Lahore (GCUL)',
+  'Greenwich University',
+  'Hamdard University',
+  'HITEC University',
+  'Indus Valley School of Art and Architecture',
+  'Institute of Business Administration, Karachi (IBA)',
+  'Institute of Management Sciences (IMS)',
+  'Institute of Space Technology (IST)',
+  'International Islamic University, Islamabad (IIUI)',
+  'Islamia College University',
+  'Jinnah Sindh Medical University (JSMU)',
+  'Khadim Ali Shah Bukhari Institute of Technology (KASBIT)',
+  'Khyber Medical University (KMU)',
+  'King Edward Medical University (KEMU)',
+  'King Hamad University of Nursing and Associated Medical Sciences',
+  'Lahore School of Economics (LSE)',
+  'Lahore University of Management Sciences (LUMS)',
+  'Lasbela University of Agriculture, Water and Marine Sciences',
+  'Minhaj University Lahore',
+  'National College of Arts (NCA)',
+  'National Defence University, Pakistan (NDU)',
+  'National University of Medical Sciences (NUMS)',
+  'National University of Modern Languages (NUML)',
+  'National University of Sciences and Technology (NUST)',
+  'NED University of Engineering and Technology (NED)',
+  'Pakistan Institute of Engineering and Applied Sciences (PIEAS)',
+  'Pakistan Institute of Fashion and Design (PIFD)',
+  'Quaid-e-Azam University (QAU)',
+  'Quaid-e-Awam University of Engineering, Science and Technology (QUEST)',
+  'Sarhad University of Science and Information Technology',
+  'Shaheed Mohtarma Benazir Bhutto Medical University',
+  'Shaheed Zulfikar Ali Bhutto Institute of Science and Technology (SZABIST)',
+  'Sindh Agriculture University',
+  'Sindh Institute of Medical Sciences',
+  'Sukkur Institute of Business Administration (Sukkur IBA)',
+  'University of Agriculture, Peshawar',
+  'University of Central Punjab (UCP)',
+  'University of Engineering & Technology, Lahore (UET)',
+  'University of Engineering and Technology, Peshawar (UET)',
+  'University of Engineering and Technology, Taxila (UET)',
+  'University of Health Sciences, Lahore (UHS)',
+  'University of Karachi (UoK)',
+  'University of Lahore (UoL)',
+  'University of Peshawar',
+  'University of the Punjab (PU)',
+  'University of Veterinary and Animal Sciences (UVAS)',
+  'Ziauddin University',
+  'Others'
+]
+
+
 export default function CompleteProfile() {
   const { user, refreshUser } = useAuth()
   const navigate = useNavigate()
@@ -103,6 +174,9 @@ export default function CompleteProfile() {
   // Form states
   const [bio, setBio] = useState('')
   const [department, setDepartment] = useState('')
+  const [selectedUni, setSelectedUni] = useState('')
+  const [customUni, setCustomUni] = useState('')
+  const [semester, setSemester] = useState('')
   const [yearOfStudy, setYearOfStudy] = useState(1)
   const [selectedAvatarType, setSelectedAvatarType] = useState('preset') // 'preset' | 'custom'
   const [presetIndex, setPresetIndex] = useState(0)
@@ -213,13 +287,15 @@ export default function CompleteProfile() {
       name: user?.name || 'User',
       bio,
       department,
+      university: selectedUni === 'Others' ? customUni.trim() : selectedUni,
+      semester: semester || null,
       year_of_study: parseInt(yearOfStudy),
       skills,
       interests,
       roles,
       availability,
       open_to_team: openToTeam,
-      gitHub_url: gitHubUrl,
+      github_url: gitHubUrl,
       linkedin_url: linkedinUrl,
       avatar_url: avatarUrl
     }
@@ -239,7 +315,8 @@ export default function CompleteProfile() {
   // Navigation validation
   const canGoNext = () => {
     if (step === 1) {
-      return department.trim() !== '' && bio.trim() !== ''
+      const hasUni = selectedUni && (selectedUni !== 'Others' || customUni.trim() !== '')
+      return department.trim() !== '' && bio.trim() !== '' && hasUni
     }
     if (step === 2) {
       return skills.length > 0
@@ -361,7 +438,7 @@ export default function CompleteProfile() {
               {/* Department & Year */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Department</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Department *</label>
                   <input
                     type="text"
                     value={department}
@@ -384,6 +461,54 @@ export default function CompleteProfile() {
                   </select>
                 </div>
               </div>
+
+              {/* University & Semester */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">University / College *</label>
+                  <select
+                    value={selectedUni}
+                    onChange={(e) => {
+                      setSelectedUni(e.target.value)
+                      if (e.target.value !== 'Others') setCustomUni('')
+                    }}
+                    className="w-full px-4 py-3 border border-slate-200 bg-white rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    required
+                  >
+                    <option value="">Select University/College</option>
+                    {PAKISTAN_UNIVERSITIES.map(uni => (
+                      <option key={uni} value={uni}>{uni}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Semester (Optional)</label>
+                  <select
+                    value={semester}
+                    onChange={(e) => setSemester(e.target.value)}
+                    className="w-full px-4 py-3 border border-slate-200 bg-white rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="">Select Semester</option>
+                    {['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'N/A'].map(sem => (
+                      <option key={sem} value={sem}>{sem === 'N/A' ? 'N/A' : `Semester ${sem}`}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {selectedUni === 'Others' && (
+                <div className="animate-in fade-in duration-200">
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Specify University / College Name *</label>
+                  <input
+                    type="text"
+                    value={customUni}
+                    onChange={(e) => setCustomUni(e.target.value)}
+                    placeholder="Enter your university or college name"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    required
+                  />
+                </div>
+              )}
             </div>
           )}
 

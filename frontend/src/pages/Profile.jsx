@@ -1,10 +1,82 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import api from '../api/axios.js'
 import toast from 'react-hot-toast'
 import {
-  User, Lock, Mail, Github, Linkedin, Save, Sparkles, Clock, Briefcase, Info, X, Check, MapPin, Upload, Zap
+  User, Users, Lock, Mail, Github, Linkedin, Save, Sparkles, Clock, Briefcase, Info, X, Check, MapPin, Upload, Zap, MessageSquare
 } from 'lucide-react'
+
+const PAKISTAN_UNIVERSITIES = [
+  'Aga Khan University (AKU)',
+  'Air University',
+  'Allama Iqbal Medical College',
+  'Bahria University',
+  'Bahauddin Zakariya University',
+  'Balochistan University of Engineering and Technology',
+  'Balochistan University of Information Technology, Engineering and Management Sciences (BUITEMS)',
+  'Baqai Medical University',
+  'Capital University of Science and Technology (CUST)',
+  'CECOS University of Information Technology and Emerging Sciences',
+  'COMMECS Institute of Business and Emerging Sciences',
+  'COMSATS University Islamabad',
+  'Dadabhoy Institute of Higher Education',
+  'Dawood University of Engineering & Technology',
+  'Dow University of Health Sciences (DUHS)',
+  'FAST - National University of Computer and Emerging Sciences (FAST-NUCES)',
+  'GIFT University',
+  'Ghulam Ishaq Khan Institute of Engineering Sciences and Technology (GIKI)',
+  'Government College University, Faisalabad (GCUF)',
+  'Government College University, Lahore (GCUL)',
+  'Greenwich University',
+  'Hamdard University',
+  'HITEC University',
+  'Indus Valley School of Art and Architecture',
+  'Institute of Business Administration, Karachi (IBA)',
+  'Institute of Management Sciences (IMS)',
+  'Institute of Space Technology (IST)',
+  'International Islamic University, Islamabad (IIUI)',
+  'Islamia College University',
+  'Jinnah Sindh Medical University (JSMU)',
+  'Khadim Ali Shah Bukhari Institute of Technology (KASBIT)',
+  'Khyber Medical University (KMU)',
+  'King Edward Medical University (KEMU)',
+  'King Hamad University of Nursing and Associated Medical Sciences',
+  'Lahore School of Economics (LSE)',
+  'Lahore University of Management Sciences (LUMS)',
+  'Lasbela University of Agriculture, Water and Marine Sciences',
+  'Minhaj University Lahore',
+  'National College of Arts (NCA)',
+  'National Defence University, Pakistan (NDU)',
+  'National University of Medical Sciences (NUMS)',
+  'National University of Modern Languages (NUML)',
+  'National University of Sciences and Technology (NUST)',
+  'NED University of Engineering and Technology (NED)',
+  'Pakistan Institute of Engineering and Applied Sciences (PIEAS)',
+  'Pakistan Institute of Fashion and Design (PIFD)',
+  'Quaid-e-Azam University (QAU)',
+  'Quaid-e-Awam University of Engineering, Science and Technology (QUEST)',
+  'Sarhad University of Science and Information Technology',
+  'Shaheed Mohtarma Benazir Bhutto Medical University',
+  'Shaheed Zulfikar Ali Bhutto Institute of Science and Technology (SZABIST)',
+  'Sindh Agriculture University',
+  'Sindh Institute of Medical Sciences',
+  'Sukkur Institute of Business Administration (Sukkur IBA)',
+  'University of Agriculture, Peshawar',
+  'University of Central Punjab (UCP)',
+  'University of Engineering & Technology, Lahore (UET)',
+  'University of Engineering and Technology, Peshawar (UET)',
+  'University of Engineering and Technology, Taxila (UET)',
+  'University of Health Sciences, Lahore (UHS)',
+  'University of Karachi (UoK)',
+  'University of Lahore (UoL)',
+  'University of Peshawar',
+  'University of the Punjab (PU)',
+  'University of Veterinary and Animal Sciences (UVAS)',
+  'Ziauddin University',
+  'Others'
+]
+
 
 const PRESET_AVATARS = [
   'from-indigo-400 to-purple-500',
@@ -92,13 +164,26 @@ const AVAILABILITY_OPTIONS = [
 
 export default function Profile() {
   const { user, refreshUser, logout } = useAuth()
-  const [activeTab, setActiveTab] = useState('view') // 'view' | 'edit' | 'security'
+  const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState('view') // 'view' | 'edit' | 'connections' | 'security'
+  const [connections, setConnections] = useState([])
+  const [fetchingConns, setFetchingConns] = useState(false)
+  const [errorLoadingConns, setErrorLoadingConns] = useState(false)
 
   // Form states (Edit Profile)
   const [name, setName] = useState(user?.name || '')
   const [bio, setBio] = useState(user?.bio || '')
   const [department, setDepartment] = useState(user?.department || '')
   const [yearOfStudy, setYearOfStudy] = useState(user?.year_of_study || '1')
+  const [selectedUni, setSelectedUni] = useState(() => {
+    if (!user?.university) return ''
+    return PAKISTAN_UNIVERSITIES.includes(user.university) ? user.university : 'Others'
+  })
+  const [customUni, setCustomUni] = useState(() => {
+    if (!user?.university) return ''
+    return PAKISTAN_UNIVERSITIES.includes(user.university) ? '' : user.university
+  })
+  const [semester, setSemester] = useState(user?.semester || '')
   const [selectedAvatarType, setSelectedAvatarType] = useState(
     user?.avatar_url?.startsWith('preset:') ? 'preset' : 'custom'
   )
@@ -146,6 +231,30 @@ export default function Profile() {
   const [sendingForgotOtp, setSendingForgotOtp] = useState(false)
   const [resettingForgotPassword, setResettingForgotPassword] = useState(false)
 
+  const fetchMyConnections = useCallback(async () => {
+    setFetchingConns(true)
+    setErrorLoadingConns(false)
+    try {
+      const token = localStorage.getItem('ts_token')
+      const res = await api.get('/api/connections', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      setConnections(res.data || [])
+    } catch (e) {
+      console.error('Failed to load connections:', e)
+      setErrorLoadingConns(true)
+      toast.error('Connection timed out. Please retry or refresh.')
+    } finally {
+      setFetchingConns(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'connections') {
+      fetchMyConnections()
+    }
+  }, [activeTab, fetchMyConnections])
+
   // Sync form states with user context data when activeTab changes to 'edit'
   useEffect(() => {
     if (activeTab === 'edit' && user) {
@@ -173,6 +282,15 @@ export default function Profile() {
       setOpenToTeam(user.open_to_team !== false)
       setGithubUrl(user.github_url || '')
       setLinkedinUrl(user.linkedin_url || '')
+      if (user.university) {
+        const isOnList = PAKISTAN_UNIVERSITIES.includes(user.university)
+        setSelectedUni(isOnList ? user.university : 'Others')
+        setCustomUni(isOnList ? '' : user.university)
+      } else {
+        setSelectedUni('')
+        setCustomUni('')
+      }
+      setSemester(user.semester || '')
     }
   }, [activeTab, user])
 
@@ -297,6 +415,8 @@ export default function Profile() {
     e.preventDefault()
     if (!name.trim()) return toast.error('Name cannot be empty')
     if (!department.trim()) return toast.error('Department is required')
+    const finalUni = selectedUni === 'Others' ? customUni.trim() : selectedUni
+    if (!finalUni) return toast.error('University/College is required')
     if (skills.length === 0) return toast.error('Please select at least one skill')
     if (roles.length === 0) return toast.error('Please select at least one preferred role')
 
@@ -312,6 +432,8 @@ export default function Profile() {
       name,
       bio,
       department,
+      university: finalUni,
+      semester: semester || null,
       year_of_study: isNaN(parseInt(yearOfStudy)) ? null : parseInt(yearOfStudy),
       skills,
       interests,
@@ -415,13 +537,20 @@ export default function Profile() {
         </div>
 
         {/* Tab Buttons */}
-        <div className="flex bg-slate-100 rounded-2xl p-1 shrink-0">
+        <div className="flex bg-slate-100 rounded-2xl p-1 shrink-0 flex-wrap sm:flex-nowrap gap-1 sm:gap-0">
           <button
             onClick={() => setActiveTab('view')}
             className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'view' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'
               }`}
           >
             Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('connections')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'connections' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+              }`}
+          >
+            Connections
           </button>
           <button
             onClick={() => setActiveTab('edit')}
@@ -462,9 +591,21 @@ export default function Profile() {
               </h2>
               <div className="space-y-3">
                 <div>
+                  <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">University / College</p>
+                  <p className="text-xs font-semibold text-slate-700">{user?.university || 'Not configured'}</p>
+                </div>
+                <div>
                   <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Department</p>
                   <p className="text-xs font-semibold text-slate-700">{user?.department || 'Not configured'}</p>
                 </div>
+                {user?.semester && (
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Semester</p>
+                    <p className="text-xs font-semibold text-slate-700">
+                      {user.semester === 'N/A' ? 'N/A' : `Semester ${user.semester}`}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Year of study</p>
                   <p className="text-xs font-semibold text-slate-700">
@@ -614,8 +755,8 @@ export default function Profile() {
                         setSelectedAvatarType('preset')
                       }}
                       className={`w-7 h-7 rounded-full bg-gradient-to-br ${gradient} border transition-transform ${selectedAvatarType === 'preset' && presetIndex === index
-                          ? 'scale-110 border-slate-800 ring-2 ring-primary/20'
-                          : 'border-white hover:scale-105'
+                        ? 'scale-110 border-slate-800 ring-2 ring-primary/20'
+                        : 'border-white hover:scale-105'
                         }`}
                     />
                   ))}
@@ -654,6 +795,54 @@ export default function Profile() {
               />
             </div>
           </div>
+
+          {/* Section 2.5: University & Semester */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">University / College <span className="text-red-500">*</span></label>
+              <select
+                value={selectedUni}
+                onChange={(e) => {
+                  setSelectedUni(e.target.value)
+                  if (e.target.value !== 'Others') setCustomUni('')
+                }}
+                className="w-full px-4 py-3 border border-slate-200 bg-white rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                required
+              >
+                <option value="">Select University/College</option>
+                {PAKISTAN_UNIVERSITIES.map(uni => (
+                  <option key={uni} value={uni}>{uni}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Semester (Optional)</label>
+              <select
+                value={semester}
+                onChange={(e) => setSemester(e.target.value)}
+                className="w-full px-4 py-3 border border-slate-200 bg-white rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              >
+                <option value="">Select Semester</option>
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'N/A'].map(sem => (
+                  <option key={sem} value={sem}>{sem === 'N/A' ? 'N/A' : `Semester ${sem}`}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {selectedUni === 'Others' && (
+            <div className="animate-in fade-in duration-200">
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Specify University / College Name *</label>
+              <input
+                type="text"
+                value={customUni}
+                onChange={(e) => setCustomUni(e.target.value)}
+                placeholder="Enter your university or college name"
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                required
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -714,8 +903,8 @@ export default function Profile() {
                   type="button"
                   onClick={() => setActiveSkillTab(cat)}
                   className={`text-[11px] px-2.5 py-1.5 font-semibold whitespace-nowrap rounded-t-lg transition-colors border-b-2 ${activeSkillTab === cat
-                      ? 'border-primary text-primary bg-primary/5'
-                      : 'border-transparent text-slate-400 hover:text-slate-600'
+                    ? 'border-primary text-primary bg-primary/5'
+                    : 'border-transparent text-slate-400 hover:text-slate-600'
                     }`}
                 >
                   {cat.split(' (')[0]}
@@ -778,8 +967,8 @@ export default function Profile() {
                   type="button"
                   onClick={() => setActiveInterestTab(cat)}
                   className={`text-[11px] px-2.5 py-1.5 font-semibold whitespace-nowrap rounded-t-lg transition-colors border-b-2 ${activeInterestTab === cat
-                      ? 'border-secondary text-secondary bg-secondary/5'
-                      : 'border-transparent text-slate-400 hover:text-slate-600'
+                    ? 'border-secondary text-secondary bg-secondary/5'
+                    : 'border-transparent text-slate-400 hover:text-slate-600'
                     }`}
                 >
                   {cat}
@@ -1093,6 +1282,156 @@ export default function Profile() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'connections' && (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8 space-y-6 animate-in fade-in duration-200">
+          <div className="border-b border-slate-100 pb-3 mb-2 flex items-center justify-between">
+            <h2 className="text-base font-bold text-slate-800 flex items-center gap-1.5">
+              <Users size={18} className="text-primary" /> Active Connections ({connections.length})
+            </h2>
+            <span className="text-xs text-slate-400">Total linked peers</span>
+          </div>
+
+          {fetchingConns ? (
+            <div className="space-y-4">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="animate-pulse flex items-center gap-4 p-4 border border-slate-100 rounded-2xl bg-slate-50/30">
+                  <div className="w-12 h-12 rounded-full bg-slate-200" />
+                  <div className="flex-1 space-y-2">
+                    <div className="w-1/4 h-4 bg-slate-200 rounded" />
+                    <div className="w-1/3 h-3 bg-slate-100 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : errorLoadingConns ? (
+            <div className="py-12 text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto mb-2 text-lg">
+                ⚠️
+              </div>
+              <p className="text-sm font-semibold text-slate-700">Connection Timeout</p>
+              <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                Failed to reach backend database. This is usually due to a local DNS selection timeout.
+              </p>
+              <button
+                onClick={fetchMyConnections}
+                className="mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
+              >
+                Retry Loading
+              </button>
+            </div>
+          ) : connections.length === 0 ? (
+            <div className="py-12 text-center">
+              <div className="w-16 h-16 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center mx-auto mb-4">
+                <Users size={28} />
+              </div>
+              <p className="text-sm font-semibold text-slate-700 mb-1">No connections yet</p>
+              <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                Start discovering and connecting with peers on the Discover tab to build your network!
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {connections.map(conn => {
+                const other = conn.user
+                const otherInitials = other.name
+                  ? other.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                  : '?'
+
+                const renderOtherAvatar = () => {
+                  if (other?.avatar_url) {
+                    if (other.avatar_url.startsWith('preset:')) {
+                      const gradient = other.avatar_url.split('preset:')[1]
+                      return (
+                        <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white text-sm font-bold shadow-sm shrink-0`}>
+                          {otherInitials}
+                        </div>
+                      )
+                    }
+                    return (
+                      <img
+                        src={other.avatar_url}
+                        alt={other.name}
+                        className="w-12 h-12 rounded-full object-cover border border-slate-100 shrink-0 shadow-sm"
+                      />
+                    )
+                  }
+                  const colorIdx = (other?.name || '').length % PRESET_AVATARS.length
+                  return (
+                    <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${PRESET_AVATARS[colorIdx] || 'from-indigo-400 to-purple-500'} flex items-center justify-center text-white text-sm font-bold shadow-sm shrink-0`}>
+                      {otherInitials}
+                    </div>
+                  )
+                }
+
+                return (
+                  <div
+                    key={conn.connection_id}
+                    className="p-4 border border-slate-100 hover:shadow-card-hover hover:border-slate-200 transition-all rounded-2xl flex flex-col justify-between gap-4"
+                  >
+                    <div className="flex items-start gap-4">
+                      <Link to={`/profile/user/${other.id}`} className="shrink-0 hover:opacity-90 transition-opacity">
+                        {renderOtherAvatar()}
+                      </Link>
+                      <div className="min-w-0 flex-1">
+                        <Link to={`/profile/user/${other.id}`} className="hover:text-indigo-600 transition-colors inline-block w-fit">
+                          <h3 className="text-sm font-bold text-slate-800 truncate leading-snug">{other.name}</h3>
+                        </Link>
+                        <p className="text-xs text-slate-600 flex items-center gap-1 mt-0.5 font-medium truncate">
+                          <MapPin size={11} className="shrink-0 text-slate-400" />
+                          <span className="truncate">{other.university || 'No university'}</span>
+                        </p>
+                        <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5 truncate">
+                          <span className="truncate">{other.department || 'No dept'}</span>
+                          {other.semester && other.semester !== 'N/A' && (
+                            <>
+                              <span>·</span>
+                              <span>Sem {other.semester}</span>
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Skills */}
+                    {other.skills?.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {other.skills.slice(0, 3).map(skill => (
+                          <span key={skill} className="text-[10px] font-medium px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md">
+                            {skill}
+                          </span>
+                        ))}
+                        {other.skills.length > 3 && (
+                          <span className="text-[10px] font-medium px-2 py-0.5 bg-slate-50 text-slate-400 rounded-md">
+                            +{other.skills.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Contact Button */}
+                    <div className="flex gap-2 pt-2.5 border-t border-slate-50">
+                      <Link
+                        to={`/profile/user/${other.id}`}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl text-xs font-semibold transition-all"
+                      >
+                        View Profile
+                      </Link>
+                      <button
+                        onClick={() => navigate('/chats', { state: { startChatWith: other } })}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-all"
+                      >
+                        <MessageSquare size={13} />
+                        Message
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 

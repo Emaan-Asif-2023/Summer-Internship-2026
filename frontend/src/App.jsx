@@ -11,6 +11,9 @@ import Home from './pages/Home.jsx'
 import CompleteProfile from './pages/CompleteProfile.jsx'
 import Profile from './pages/Profile.jsx'
 import Discover from './pages/Discover.jsx'
+import Notifications from './pages/Notifications.jsx'
+import PublicProfile from './pages/PublicProfile.jsx'
+import Chats from './pages/Chats.jsx'
 function ComingSoon({ title }) {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
@@ -60,15 +63,19 @@ function App() {
           </Route>
 
           <Route path="/chats" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route index element={<ComingSoon title="Chats" />} />
+            <Route index element={<Chats />} />
           </Route>
 
           <Route path="/notifications" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route index element={<ComingSoon title="Notifications" />} />
+            <Route index element={<Notifications />} />
           </Route>
 
           <Route path="/profile" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
             <Route index element={<Profile />} />
+          </Route>
+
+          <Route path="/profile/user/:userId" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+            <Route index element={<PublicProfile />} />
           </Route>
 
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

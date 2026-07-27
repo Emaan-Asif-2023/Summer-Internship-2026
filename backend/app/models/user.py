@@ -20,6 +20,8 @@ class UserResponse(BaseModel):
     email: str
     bio: Optional[str] = ""
     department: Optional[str] = ""
+    university: Optional[str] = ""
+    semester: Optional[str] = None
     year_of_study: Optional[int] = None
     skills: Optional[List[str]] = []
     interests: Optional[List[str]] = []
@@ -37,6 +39,8 @@ class UpdateProfileRequest(BaseModel):
     name: str
     bio: Optional[str] = ""
     department: Optional[str] = ""
+    university: Optional[str] = ""
+    semester: Optional[str] = None
     year_of_study: Optional[int] = None
     skills: Optional[List[str]] = []
     interests: Optional[List[str]] = []

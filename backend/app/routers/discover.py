@@ -1,291 +1,16 @@
-# # app/routers/discover.py
-# """
-# Discover router – search students & projects (teams).
-# Adjust the get_current_user import to match your auth module.
-# """
-
-# from fastapi import APIRouter, Depends, Query, HTTPException
-# from typing import Optional, List
-# from bson import ObjectId
-# from app.database import get_database
-
-# router = APIRouter(tags=["discover"])
-
-# try:
-#     from app.routers.auth import get_current_user
-# except ImportError:
-#     async def get_current_user(db=Depends(get_database)):
-#         raise HTTPException(status_code=401, detail="Auth not configured")
-
-
-# def _serialize(doc) -> dict:
-#     if doc is None:
-#         return None
-#     doc["id"] = str(doc.pop("_id", None))
-#     # Convert nested ObjectIds (e.g. owner_id in teams)
-#     for key in ("owner_id", "user_id"):
-#         if key in doc and isinstance(doc[key], ObjectId):
-#             doc[key] = str(doc[key])
-#     if "member_ids" in doc:
-#         doc["member_ids"] = [str(m) for m in doc["member_ids"] if isinstance(m, ObjectId)]
-#     return doc
-
-
-# def _calc_match(current: dict, target: dict) -> int:
-#     """Simple skill-overlap + department/semester match score (0-100)."""
-#     score = 0.0
-#     cur_skills = set(current.get("skills", []) or [])
-#     tgt_skills = set(target.get("skills", []) or [])
-
-#     # Skill overlap → up to 60 pts
-#     if tgt_skills:
-#         overlap = len(cur_skills & tgt_skills)
-#         score += (overlap / len(tgt_skills)) * 60
-
-#     # Same department → 20 pts
-#     if current.get("department") and target.get("department"):
-#         if current["department"].lower() == target["department"].lower():
-#             score += 20
-
-#     # Semester proximity → up to 20 pts
-#     cur_sem = current.get("semester")
-#     tgt_sem = target.get("semester")
-#     if cur_sem and tgt_sem:
-#         score += max(0, 20 - abs(cur_sem - tgt_sem) * 5)
-
-#     return min(100, int(score))
-
-
-# def _build_student_query(
-#     search: Optional[str],
-#     department: Optional[str],
-#     semester: Optional[int],
-#     skills: Optional[List[str]],
-#     exclude_id: str,
-# ) -> dict:
-#     q: dict = {"_id": {"$ne": ObjectId(exclude_id)}}
-#     if search:
-#         q["$or"] = [
-#             {"name": {"$regex": search, "$options": "i"}},
-#             {"skills": {"$regex": search, "$options": "i"}},
-#             {"department": {"$regex": search, "$options": "i"}},
-#         ]
-#     if department:
-#         q["department"] = {"$regex": f"^{department}$", "$options": "i"}
-#     if semester is not None:
-#         q["semester"] = semester
-#     if skills:
-#         q["skills"] = {"$all": [s.strip() for s in skills if s.strip()]}
-#     return q
-
-
-# def _build_project_query(
-#     search: Optional[str],
-#     status: Optional[str],
-#     skills: Optional[List[str]],
-# ) -> dict:
-#     q: dict = {}
-#     if search:
-#         q["$or"] = [
-#             {"title": {"$regex": search, "$options": "i"}},
-#             {"description": {"$regex": search, "$options": "i"}},
-#             {"skills": {"$regex": search, "$options": "i"}},
-#         ]
-#     if status:
-#         q["status"] = status
-#     if skills:
-#         q["skills"] = {"$all": [s.strip() for s in skills if s.strip()]}
-#     return q
-
-
-# # ── Endpoints ───────────────────────────────────────────────
-
-# @router.get("/discover/students")
-# async def search_students(
-#     search: Optional[str] = Query(None, max_length=100),
-#     department: Optional[str] = Query(None, max_length=100),
-#     semester: Optional[int] = Query(None, ge=1, le=12),
-#     skills: Optional[List[str]] = Query(None),
-#     page: int = Query(1, ge=1),
-#     limit: int = Query(12, ge=1, le=50),
-#     sort: str = Query("relevance", regex="^(relevance|name_asc|name_desc|semester_asc|semester_desc)$"),
-#     db=Depends(get_database),
-#     current_user=Depends(get_current_user),
-# ):
-#     """Search & filter students, sorted by match relevance by default."""
-#     query = _build_student_query(search, department, semester, skills, current_user["id"])
-#     total = await db.users.count_documents(query)
-
-#     # Sorting
-#     if sort == "relevance":
-#         sort_key = "name"  # fallback; we re-sort by match below
-#         sort_dir = 1
-#     elif sort == "name_asc":
-#         sort_key, sort_dir = "name", 1
-#     elif sort == "name_desc":
-#         sort_key, sort_dir = "name", -1
-#     elif sort == "semester_asc":
-#         sort_key, sort_dir = "semester", 1
-#     else:
-#         sort_key, sort_dir = "semester", -1
-
-#     skip = (page - 1) * limit
-#     cursor = db.users.find(query).sort(sort_key, sort_dir).skip(skip).limit(limit)
-#     docs = await cursor.to_list(length=limit)
-#     results = [_serialize(d) for d in docs]
-
-#     # Attach match score when sorting by relevance
-#     if sort == "relevance":
-#         for r in results:
-#             r["match_score"] = _calc_match(current_user, r)
-#         results.sort(key=lambda x: x["match_score"], reverse=True)
-
-#     pages = max(1, (total + limit - 1) // limit)
-#     return {"results": results, "total": total, "page": page, "limit": limit, "pages": pages}
-
-
-# @router.get("/discover/projects")
-# async def search_projects(
-#     search: Optional[str] = Query(None, max_length=200),
-#     status: Optional[str] = Query(None, regex="^(Recruiting|In Progress|Completed)$"),
-#     skills: Optional[List[str]] = Query(None),
-#     page: int = Query(1, ge=1),
-#     limit: int = Query(12, ge=1, le=50),
-#     sort: str = Query("newest", regex="^(relevance|newest|members_asc|members_desc)$"),
-#     db=Depends(get_database),
-#     current_user=Depends(get_current_user),
-# ):
-#     """Search & filter projects (teams)."""
-#     query = _build_project_query(search, status, skills)
-#     total = await db.teams.count_documents(query)
-
-#     sort_map = {
-#         "newest": ("created_at", -1),
-#         "members_asc": ("member_count", 1),
-#         "members_desc": ("member_count", -1),
-#         "relevance": ("created_at", -1),
-#     }
-#     sort_key, sort_dir = sort_map.get(sort, ("created_at", -1))
-
-#     skip = (page - 1) * limit
-#     cursor = db.teams.find(query).sort(sort_key, sort_dir).skip(skip).limit(limit)
-#     docs = await cursor.to_list(length=limit)
-#     results = [_serialize(d) for d in docs]
-
-#     # Compute member_count if stored as array
-#     for r in results:
-#         r["member_count"] = len(r.get("member_ids", []))
-
-#     pages = max(1, (total + limit - 1) // limit)
-#     return {"results": results, "total": total, "page": page, "limit": limit, "pages": pages}
-
-
-# @router.get("/discover/meta")
-# async def discover_meta(
-#     db=Depends(get_database),
-#     current_user=Depends(get_current_user),
-# ):
-#     """Return available departments, semesters, and top skills for filter dropdowns."""
-#     departments = await db.users.distinct("department")
-#     departments = sorted([d for d in departments if d])
-
-#     semesters = sorted(await db.users.distinct("semester"))
-#     semesters = [s for s in semesters if isinstance(s, int)]
-
-#     # Top 20 most common skills
-#     pipeline = [
-#         {"$unwind": "$skills"},
-#         {"$group": {"_id": "$skills", "count": {"$sum": 1}}},
-#         {"$sort": {"count": -1}},
-#         {"$limit": 20},
-#     ]
-#     skill_docs = await db.users.aggregate(pipeline).to_list(length=20)
-#     skills = [s["_id"] for s in skill_docs if s["_id"]]
-
-#     return {"departments": departments, "semesters": semesters, "skills": skills}
-
-# app/routers/discover.py
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from typing import Optional, List
 from bson import ObjectId
 from app.database import get_database
 
 router = APIRouter(tags=["discover"])
 
+try:
+    from app.routers.auth import get_current_user
+except ImportError:
+    async def get_current_user(db=Depends(get_database)):
+        raise HTTPException(status_code=401, detail="Auth not configured")
 
-# ── Optional auth — never blocks the request ───────────────
-
-async def _try_get_user(request: Request, db) -> Optional[dict]:
-    """Best-effort user lookup. Returns None on any failure."""
-    try:
-        auth = request.headers.get("Authorization", "")
-        if not auth.startswith("Bearer "):
-            return None
-        token = auth[7:]
-        if not token:
-            return None
-
-        payload = None
-
-        # Try python-jose
-        try:
-            from jose import jwt
-            from app.config import settings
-            secret = getattr(settings, "JWT_SECRET", None) or getattr(settings, "SECRET_KEY", None) or getattr(settings, "JWT_SECRET_KEY", None)
-            if secret:
-                payload = jwt.decode(token, secret, algorithms=["HS256"])
-            else:
-                payload = jwt.decode(token, options={"verify_signature": False})
-        except Exception:
-            pass
-
-        # Try PyJWT
-        if not payload:
-            try:
-                import jwt as pyjwt
-                from app.config import settings
-                secret = getattr(settings, "JWT_SECRET", None) or getattr(settings, "SECRET_KEY", None) or getattr(settings, "JWT_SECRET_KEY", None)
-                if secret:
-                    payload = pyjwt.decode(token, secret, algorithms=["HS256"])
-                else:
-                    payload = pyjwt.decode(token, options={"verify_signature": False})
-            except Exception:
-                pass
-
-        # Raw base64 fallback
-        if not payload:
-            try:
-                import base64, json
-                parts = token.split(".")
-                if len(parts) >= 2:
-                    padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
-                    payload = json.loads(base64.urlsafe_b64decode(padded))
-            except Exception:
-                pass
-
-        if not payload:
-            return None
-
-        uid = payload.get("sub") or payload.get("user_id") or payload.get("id")
-        if not uid:
-            return None
-
-        try:
-            user = await db.users.find_one({"_id": ObjectId(uid)}, {"password_hash": 0})
-        except Exception:
-            user = await db.users.find_one({"_id": uid}, {"password_hash": 0})
-
-        if not user:
-            return None
-
-        user["id"] = str(user["_id"])
-        return user
-
-    except Exception:
-        return None
-
-
-# ── Helpers ─────────────────────────────────────────────────
 
 def _ser(doc) -> dict:
     if not doc:
@@ -308,6 +33,83 @@ def _skills(doc) -> list:
     return s if isinstance(s, list) else []
 
 
+CATEGORIZED_SKILLS = {
+    "Computer Science & IT": [
+        "React", "Node.js", "Python", "FastAPI", "MongoDB", "Figma", "UI/UX",
+        "Next.js", "Express.js", "SQL", "JavaScript", "TypeScript", "HTML/CSS",
+        "Tailwind CSS", "Git", "Docker", "AWS", "Java", "Spring Boot", "C++", 
+        "C#", "Dart", "Flutter", "React Native", "Swift", "Kotlin"
+    ],
+    "Business & Finance (ACCA/CA)": [
+        "Financial Accounting", "Management Accounting", "Financial Reporting",
+        "Taxation", "Auditing", "Corporate Finance", "Excel (Advanced)",
+        "QuickBooks", "SAP", "Financial Analysis", "Cost Accounting",
+        "Strategic Planning", "Risk Management", "Business Strategy",
+        "Investment Banking", "Portfolio Management", "Audit Assurance",
+        "Double-Entry Bookkeeping", "IFRS", "GAAP", "Tally ERP"
+    ],
+    "Medical & Health (MBBS)": [
+        "Anatomy", "Physiology", "Biochemistry", "Pharmacology", "Pathology",
+        "Microbiology", "Forensic Medicine", "Community Medicine", "Medicine",
+        "Surgery", "Pediatrics", "Obstetrics & Gynecology", "Clinical Diagnostics",
+        "Patient Care", "Medical Research", "Surgical Assistance", "First Aid / CPR",
+        "ECG Interpretation", "Health Informatics", "Lab Reporting"
+    ],
+    "Arts & Creative": [
+        "Graphic Design", "Illustration", "UI/UX Design", "Figma", "Adobe Photoshop",
+        "Adobe Illustrator", "Adobe InDesign", "Adobe Premiere Pro", "Adobe After Effects",
+        "3D Modeling", "Blender", "Maya", "Animation", "Fine Arts", "Digital Painting",
+        "Sketching", "Typography", "Photography", "Video Editing", "Creative Writing",
+        "CorelDraw", "Lightroom", "UX Research"
+    ],
+    "General / Engineering / Others": [
+        "Technical Writing", "Project Management", "MATLAB", "AutoCAD",
+        "SolidWorks", "LabVIEW", "Excel", "Data Analysis", "Communication",
+        "Problem Solving", "Time Management", "Leadership", "Public Speaking",
+        "Content Writing"
+    ]
+}
+
+
+def _get_category_skills(user: dict) -> list:
+    if not user:
+        return CATEGORIZED_SKILLS["Computer Science & IT"]
+
+    import re
+    # Helper to check if any of the keywords match whole words in user fields
+    def has_any_keyword(keywords):
+        dept_words = set(re.findall(r'\b[a-z0-9\-]+\b', (user.get("department") or "").lower()))
+        interest_words = set()
+        for interest in (user.get("interests") or []):
+            interest_words.update(re.findall(r'\b[a-z0-9\-]+\b', interest.lower()))
+        
+        all_words = dept_words.union(interest_words)
+        return any(k.lower() in all_words for k in keywords)
+
+    # 1. Tech & CS check (Checked first so CS students with UI/UX Design interests match CS)
+    tech_keywords = ["computer", "software", "cs", "it", "developer", "web", "ai", "programming", "coding", "networks"]
+    if has_any_keyword(tech_keywords):
+        return CATEGORIZED_SKILLS["Computer Science & IT"]
+
+    # 2. Medical & Health check
+    medical_keywords = ["medical", "mbbs", "health", "medicine", "doctor", "anatomy", "physiology", "clinical", "surgery"]
+    if has_any_keyword(medical_keywords):
+        return CATEGORIZED_SKILLS["Medical & Health (MBBS)"]
+
+    # 3. Business & Finance check
+    business_keywords = ["business", "finance", "accounting", "acca", "ca", "tax", "audit", "management", "economics", "bba", "mba"]
+    if has_any_keyword(business_keywords):
+        return CATEGORIZED_SKILLS["Business & Finance (ACCA/CA)"]
+
+    # 4. Arts & Creative check
+    arts_keywords = ["art", "arts", "design", "graphic", "creative", "fine", "illustration", "fashion", "paint", "painting", "animation"]
+    if has_any_keyword(arts_keywords):
+        return CATEGORIZED_SKILLS["Arts & Creative"]
+
+    # 5. Default
+    return CATEGORIZED_SKILLS["General / Engineering / Others"]
+
+
 def _match(current: dict, target: dict) -> int:
     cur = set(current.get("skills") or [])
     tgt = set(_skills(target))
@@ -321,17 +123,68 @@ def _match(current: dict, target: dict) -> int:
     cs = current.get("semester")
     ts = target.get("semester")
     if cs is not None and ts is not None:
-        score += max(0, 20 - abs(int(cs) - int(ts)) * 5)
+        try:
+            score += max(0, 20 - abs(int(cs) - int(ts)) * 5)
+        except (ValueError, TypeError):
+            pass
     return min(100, int(score))
 
 
-# ── Endpoints ───────────────────────────────────────────────
+async def _try_get_user(request: Request, db) -> Optional[dict]:
+    try:
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return None
+        token = auth_header.split(" ")[1]
+        payload = None
+
+        try:
+            import jwt as pyjwt
+            payload = pyjwt.decode(token, options={"verify_signature": False})
+        except Exception:
+            pass
+
+        if not payload:
+            try:
+                import base64, json
+                parts = token.split(".")
+                if len(parts) >= 2:
+                    padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
+                    payload = json.loads(base64.urlsafe_b64decode(padded))
+            except Exception:
+                pass
+
+        if not payload:
+            return None
+
+        uid = payload.get("sub") or payload.get("user_id") or payload.get("id")
+        if not uid:
+            return None
+
+        # Look up by email if sub is an email address, else by _id
+        if uid and "@" in str(uid):
+            user = await db.users.find_one({"email": str(uid).strip().lower()}, {"password_hash": 0})
+        else:
+            try:
+                user = await db.users.find_one({"_id": ObjectId(uid)}, {"password_hash": 0})
+            except Exception:
+                user = await db.users.find_one({"_id": uid}, {"password_hash": 0})
+
+        if not user:
+            return None
+
+        user["id"] = str(user["_id"])
+        return user
+    except Exception:
+        return None
+
 
 @router.get("/discover/students")
 async def search_students(
     request: Request,
     search: Optional[str] = Query(None, max_length=100),
     department: Optional[str] = Query(None, max_length=100),
+    university: Optional[str] = Query(None, max_length=200),
     semester: Optional[int] = Query(None, ge=1, le=12),
     skills: Optional[List[str]] = Query(None),
     page: int = Query(1, ge=1),
@@ -350,11 +203,14 @@ async def search_students(
             {"name": {"$regex": search, "$options": "i"}},
             {"skills": {"$regex": search, "$options": "i"}},
             {"department": {"$regex": search, "$options": "i"}},
+            {"university": {"$regex": search, "$options": "i"}},
         ]
     if department:
         q["department"] = {"$regex": "^" + department + "$", "$options": "i"}
+    if university:
+        q["university"] = {"$regex": "^" + university + "$", "$options": "i"}
     if semester is not None:
-        q["semester"] = semester
+        q["semester"] = {"$in": [semester, str(semester)]}
     if skills:
         clean = [s.strip() for s in skills if s.strip()]
         if clean:
@@ -442,7 +298,6 @@ async def search_projects(
         r["member_count"] = r.pop("_mc", 0)
         r["max_members"] = r.get("max_members") or 5
 
-    # Batch owner names
     oids = list({r.get("owner_id") for r in results if r.get("owner_id")})
     owner_map = {}
     if oids:
@@ -464,19 +319,18 @@ async def discover_meta(
     request: Request,
     db=Depends(get_database),
 ):
+    current_user = await _try_get_user(request, db)
+
     departments = await db.users.distinct("department")
     departments = sorted([d for d in departments if d])
 
     semesters = await db.users.distinct("semester")
     semesters = sorted([int(s) for s in semesters if isinstance(s, (int, float))])
 
-    pipeline = [
-        {"$unwind": {"path": "$skills", "preserveNullAndEmptyArrays": False}},
-        {"$group": {"_id": "$skills", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}},
-        {"$limit": 20},
-    ]
-    skill_docs = await db.users.aggregate(pipeline).to_list(length=20)
-    skills = [s["_id"] for s in skill_docs if s["_id"]]
+    universities = await db.users.distinct("university")
+    universities = sorted([u for u in universities if u])
 
-    return {"departments": departments, "semesters": semesters, "skills": skills}
+    # Dynamic curated skills recommended based on student's field/profession category
+    skills = _get_category_skills(current_user)
+
+    return {"departments": departments, "semesters": semesters, "skills": skills, "universities": universities}
