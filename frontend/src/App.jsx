@@ -14,6 +14,7 @@ import Discover from './pages/Discover.jsx'
 import Notifications from './pages/Notifications.jsx'
 import PublicProfile from './pages/PublicProfile.jsx'
 import Chats from './pages/Chats.jsx'
+import Projects from './pages/Projects.jsx'
 function ComingSoon({ title }) {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
@@ -59,7 +60,7 @@ function App() {
           </Route>
 
           <Route path="/projects" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route index element={<ComingSoon title="Projects" />} />
+            <Route index element={<Projects />} />
           </Route>
 
           <Route path="/chats" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
