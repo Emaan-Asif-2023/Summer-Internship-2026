@@ -1,23 +1,27 @@
-import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { useNotifications } from '../../context/NotificationContext.jsx'
 import {
   Home, Compass, FolderKanban, MessageCircle,
   Bell, User, LogOut, Users
 } from 'lucide-react'
 
-const NAV_ITEMS = [
-  { to: '/dashboard', icon: Home, label: 'Home' },
-  { to: '/discover', icon: Compass, label: 'Discover' },
-  { to: '/projects', icon: FolderKanban, label: 'Projects' },
-  { to: '/chats', icon: MessageCircle, label: 'Chats', badge: 3 },
-  { to: '/notifications', icon: Bell, label: 'Notifications', badge: 5 },
-  { to: '/profile', icon: User, label: 'Profile' },
-]
-
 export default function Sidebar() {
   const { user, logout } = useAuth()
+  const { notifications } = useNotifications()
   const location = useLocation()
+
+  const unreadMessages = notifications.filter(n => n.type === 'message' && !n.read).length
+  const unreadOther = notifications.filter(n => n.type !== 'message' && !n.read).length
+
+  const NAV_ITEMS = [
+    { to: '/dashboard', icon: Home, label: 'Home' },
+    { to: '/discover', icon: Compass, label: 'Discover' },
+    { to: '/projects', icon: FolderKanban, label: 'Projects' },
+    { to: '/chats', icon: MessageCircle, label: 'Chats', badge: unreadMessages || null },
+    { to: '/notifications', icon: Bell, label: 'Notifications', badge: unreadOther || null },
+    { to: '/profile', icon: User, label: 'Profile' },
+  ]
 
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -87,7 +91,7 @@ export default function Sidebar() {
                       : 'bg-red-100 text-red-600'
                   }`}
                 >
-                  {item.badge}
+                  {item.badge > 9 ? '9+' : item.badge}
                 </span>
               )}
             </NavLink>
@@ -117,4 +121,4 @@ export default function Sidebar() {
       </div>
     </aside>
   )
-}
+}

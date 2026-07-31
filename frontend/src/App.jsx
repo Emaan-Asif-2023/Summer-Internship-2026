@@ -1,7 +1,7 @@
-
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext.jsx'
+import { NotificationProvider } from './context/NotificationContext.jsx'
 
 import SignIn from './pages/SignIn.jsx'
 import SignUp from './pages/SignUp.jsx'
@@ -35,54 +35,56 @@ function ComingSoon({ title }) {
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            style: {
-              borderRadius: '12px',
-              fontSize: '14px',
-              fontFamily: 'Inter, sans-serif',
-            },
-          }}
-        />
-        <Routes>
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfile /></ProtectedRoute>} />
+      <NotificationProvider>
+        <BrowserRouter>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              style: {
+                borderRadius: '12px',
+                fontSize: '14px',
+                fontFamily: 'Inter, sans-serif',
+              },
+            }}
+          />
+          <Routes>
+            <Route path="/signin" element={<SignIn />} />
+            <Route path="/signup" element={<SignUp />} />
+            <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfile /></ProtectedRoute>} />
 
-          <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route index element={<Home />} />
-          </Route>
+            <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+              <Route index element={<Home />} />
+            </Route>
 
-          <Route path="/discover" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route index element={<Discover />} />
-          </Route>
+            <Route path="/discover" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+              <Route index element={<Discover />} />
+            </Route>
 
-          <Route path="/projects" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route index element={<Projects />} />
-          </Route>
+            <Route path="/projects" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+              <Route index element={<Projects />} />
+            </Route>
 
-          <Route path="/chats" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route index element={<Chats />} />
-          </Route>
+            <Route path="/chats" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+              <Route index element={<Chats />} />
+            </Route>
 
-          <Route path="/notifications" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route index element={<Notifications />} />
-          </Route>
+            <Route path="/notifications" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+              <Route index element={<Notifications />} />
+            </Route>
 
-          <Route path="/profile" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route index element={<Profile />} />
-          </Route>
+            <Route path="/profile" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+              <Route index element={<Profile />} />
+            </Route>
 
-          <Route path="/profile/user/:userId" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route index element={<PublicProfile />} />
-          </Route>
+            <Route path="/profile/user/:userId" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+              <Route index element={<PublicProfile />} />
+            </Route>
 
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </BrowserRouter>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </NotificationProvider>
     </AuthProvider>
   )
 }

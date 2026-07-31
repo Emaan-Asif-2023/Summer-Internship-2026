@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from app.database import get_database
 from app.middleware.auth_middleware import get_current_user
+from app.services.notification_service import create_notification, notify_many
 from bson import ObjectId
 from datetime import datetime
 from pydantic import BaseModel
@@ -87,6 +88,13 @@ async def get_owned_project_or_404(db, project_id: str, owner_id: ObjectId) -> d
     return proj
 
 
+async def notify_other_members(db, proj: dict, exclude_ids, ntype: str, title: str, data: Optional[dict] = None):
+    """Notify every current member of a project except the ids in exclude_ids (e.g. the actor)."""
+    exclude = {str(x) for x in exclude_ids}
+    targets = [m for m in proj.get("member_ids", []) if str(m) not in exclude]
+    await notify_many(db, targets, ntype, title, data=data or {"project_id": str(proj["_id"])})
+
+
 # ---------- Create / Read / Update / Delete ----------
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -141,12 +149,6 @@ async def get_joined_projects(
     return [await serialize_project(db, d, user_id) for d in docs]
 
 
-# NOTE: static sub-routes (/invitations/received, /requests/sent, /requests/received)
-# are declared further below but MUST be registered before "/{project_id}" in FastAPI's
-# router if declared after in the same file with matching prefix depth - since these are
-# nested one level deeper than "/{project_id}" (2 path segments vs 1), there is no
-# collision here. Kept in this order for readability of the CRUD block.
-
 @router.get("/{project_id}")
 async def get_project_detail(
     project_id: str,
@@ -183,11 +185,21 @@ async def update_project(
     if "max_members" in updates and updates["max_members"] < len(proj.get("member_ids", [])):
         raise HTTPException(status_code=400, detail="max_members cannot be less than current member count")
 
+    status_changed = "status" in updates and updates["status"] != proj.get("status")
+
     if updates:
         updates["updated_at"] = datetime.utcnow()
         await db.projects.update_one({"_id": proj["_id"]}, {"$set": updates})
 
     updated = await db.projects.find_one({"_id": proj["_id"]})
+
+    if status_changed:
+        await notify_other_members(
+            db, updated, exclude_ids=[current_user["_id"]],
+            ntype="project_update",
+            title=f'"{updated["title"]}" status changed to {updated["status"]}',
+        )
+
     return await serialize_project(db, updated, current_user["_id"])
 
 
@@ -198,6 +210,13 @@ async def delete_project(
     db=Depends(get_database)
 ):
     proj = await get_owned_project_or_404(db, project_id, current_user["_id"])
+
+    await notify_other_members(
+        db, proj, exclude_ids=[current_user["_id"]],
+        ntype="project_update",
+        title=f'"{proj["title"]}" was deleted by the owner',
+    )
+
     await db.projects.delete_one({"_id": proj["_id"]})
     await db.project_invitations.delete_many({"project_id": proj["_id"]})
     await db.project_requests.delete_many({"project_id": proj["_id"]})
@@ -228,6 +247,13 @@ async def leave_project(
         {"_id": pid},
         {"$pull": {"member_ids": user_id}, "$set": {"updated_at": datetime.utcnow()}}
     )
+
+    await notify_other_members(
+        db, proj, exclude_ids=[user_id],
+        ntype="project_update",
+        title=f'{current_user.get("name", "A member")} left "{proj["title"]}"',
+    )
+
     return {"message": "Left project"}
 
 
@@ -266,7 +292,7 @@ async def invite_user(
         raise HTTPException(status_code=400, detail="An invitation is already pending for this user")
 
     now = datetime.utcnow()
-    await db.project_invitations.insert_one({
+    result = await db.project_invitations.insert_one({
         "project_id": proj["_id"],
         "invited_by": current_user["_id"],
         "to_user_id": to_user_id,
@@ -274,6 +300,13 @@ async def invite_user(
         "created_at": now,
         "updated_at": now,
     })
+
+    await create_notification(
+        db, to_user_id, "project_invitation",
+        title=f'{current_user.get("name", "Someone")} invited you to join "{proj["title"]}"',
+        data={"project_id": str(proj["_id"]), "invitation_id": str(result.inserted_id)},
+    )
+
     return {"message": "Invitation sent"}
 
 
@@ -336,6 +369,7 @@ async def respond_to_invitation(
             raise HTTPException(status_code=404, detail="Project no longer exists")
         if len(proj.get("member_ids", [])) >= proj.get("max_members", 5):
             raise HTTPException(status_code=400, detail="Project is already full")
+
         await db.projects.update_one(
             {"_id": proj["_id"]},
             {"$addToSet": {"member_ids": current_user["_id"]}, "$set": {"updated_at": datetime.utcnow()}}
@@ -343,6 +377,18 @@ async def respond_to_invitation(
         await db.project_invitations.update_one(
             {"_id": inv_id}, {"$set": {"status": "accepted", "updated_at": datetime.utcnow()}}
         )
+
+        await create_notification(
+            db, proj["owner_id"], "project_accepted",
+            title=f'{current_user.get("name", "Someone")} accepted your invitation to "{proj["title"]}"',
+            data={"project_id": str(proj["_id"])},
+        )
+        await notify_other_members(
+            db, proj, exclude_ids=[current_user["_id"], proj["owner_id"]],
+            ntype="project_update",
+            title=f'{current_user.get("name", "A new member")} joined "{proj["title"]}"',
+        )
+
         return {"message": "Invitation accepted"}
     else:
         await db.project_invitations.update_one(
@@ -386,7 +432,7 @@ async def request_to_join(
         raise HTTPException(status_code=400, detail="You already have a pending request for this project")
 
     now = datetime.utcnow()
-    await db.project_requests.insert_one({
+    result = await db.project_requests.insert_one({
         "project_id": pid,
         "user_id": user_id,
         "message": payload.message or "",
@@ -394,6 +440,13 @@ async def request_to_join(
         "created_at": now,
         "updated_at": now,
     })
+
+    await create_notification(
+        db, proj["owner_id"], "project_join_request",
+        title=f'{current_user.get("name", "Someone")} requested to join "{proj["title"]}"',
+        data={"project_id": str(pid), "request_id": str(result.inserted_id)},
+    )
+
     return {"message": "Join request sent"}
 
 
@@ -485,6 +538,7 @@ async def respond_to_join_request(
     if payload.action == "accept":
         if len(proj.get("member_ids", [])) >= proj.get("max_members", 5):
             raise HTTPException(status_code=400, detail="Project is already full")
+
         await db.projects.update_one(
             {"_id": proj["_id"]},
             {"$addToSet": {"member_ids": req["user_id"]}, "$set": {"updated_at": datetime.utcnow()}}
@@ -492,6 +546,18 @@ async def respond_to_join_request(
         await db.project_requests.update_one(
             {"_id": req_id}, {"$set": {"status": "accepted", "updated_at": datetime.utcnow()}}
         )
+
+        await create_notification(
+            db, req["user_id"], "project_accepted",
+            title=f'Your request to join "{proj["title"]}" was accepted',
+            data={"project_id": str(proj["_id"])},
+        )
+        await notify_other_members(
+            db, proj, exclude_ids=[req["user_id"], current_user["_id"]],
+            ntype="project_update",
+            title=f'A new member joined "{proj["title"]}"',
+        )
+
         return {"message": "Request accepted"}
     else:
         await db.project_requests.update_one(

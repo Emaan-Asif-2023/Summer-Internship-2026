@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from app.database import get_database
 from app.middleware.auth_middleware import get_current_user
+from app.services.notification_service import create_notification
 from bson import ObjectId
 from datetime import datetime
 from pydantic import BaseModel
@@ -58,7 +59,14 @@ async def send_connection_request(
         "updated_at": datetime.utcnow()
     }
 
-    await db.connections.insert_one(new_conn)
+    result = await db.connections.insert_one(new_conn)
+
+    await create_notification(
+        db, receiver_id, "connection_request",
+        title=f"{current_user.get('name', 'Someone')} sent you a connection request",
+        data={"connection_id": str(result.inserted_id), "sender_id": str(sender_id)},
+    )
+
     return {"message": "Connection request sent successfully"}
 
 
@@ -127,6 +135,11 @@ async def respond_to_request(
         await db.connections.update_one(
             {"_id": conn_id},
             {"$set": {"status": "accepted", "updated_at": datetime.utcnow()}}
+        )
+        await create_notification(
+            db, connection["sender_id"], "connection_accepted",
+            title=f"{current_user.get('name', 'Someone')} accepted your connection request",
+            data={"user_id": str(current_user["_id"])},
         )
         return {"message": "Connection request accepted"}
     else:
