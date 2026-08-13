@@ -1,7 +1,6 @@
 import os
 import sys
 
-# Force UTF-8 output on Windows to prevent emoji UnicodeEncodeError
 os.environ["PYTHONIOENCODING"] = "utf-8"
 
 import uvicorn
