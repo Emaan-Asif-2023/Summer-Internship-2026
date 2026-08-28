@@ -37,6 +37,7 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
         "https://teamsyncc.netlify.app",
+        "https://teamsyncc1.netlify.app",
         "http://127.0.0.1:5175",
     ],
     allow_credentials=True,
