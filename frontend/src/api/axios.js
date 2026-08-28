@@ -5,7 +5,9 @@ import axios from 'axios'
 //   timeout: 15000,
 // })
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000',
+  baseURL: import.meta.env.VITE_API_URL 
+    ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+    : 'http://127.0.0.1:8001',
   timeout: 15000,
 })
 
