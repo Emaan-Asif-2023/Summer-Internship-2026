@@ -9,7 +9,8 @@ import {
   Filter, RotateCcw
 } from 'lucide-react'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+const API_BASE = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`
 
 const getHeaders = () => {
   const token = localStorage.getItem('ts_token')
@@ -428,7 +429,11 @@ export default function Discover() {
   const [department, setDepartment] = useState('')
   const [university, setUniversity] = useState('')
   const [semester, setSemester] = useState('')
-  const [selectedSkills, setSelectedSkills] = useState([])
+  
+  const [selectedSkills, setSelectedSkills] = useState(() => {
+    const skillParam = searchParams.get('skill')
+      return skillParam ? [skillParam] : []
+  })
   const [status, setStatus] = useState('')
   const [sort, setSort] = useState('relevance')
   const [page, setPage] = useState(1)

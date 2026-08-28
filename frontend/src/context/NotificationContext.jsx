@@ -3,7 +3,8 @@ import { useAuth } from './AuthContext.jsx'
 import api from '../api/axios.js'
 import toast from 'react-hot-toast'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+const API_BASE = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`
 const WS_URL = API_BASE.replace(/^http/, 'ws').replace(/\/api\/?$/, '') + '/ws/chat'
 
 const authHeaders = () => {

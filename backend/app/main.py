@@ -27,7 +27,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
-# CORS
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -36,6 +36,8 @@ app.add_middleware(
         "http://localhost:5175",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
+        "https://teamsyncc.netlify.app",
+        "https://teamsyncc1.netlify.app",
         "http://127.0.0.1:5175",
     ],
     allow_credentials=True,

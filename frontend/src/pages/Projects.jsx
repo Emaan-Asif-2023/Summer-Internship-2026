@@ -7,7 +7,8 @@ import {
   Search, Loader2, Sparkles, ChevronDown
 } from 'lucide-react'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+const API_BASE = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`
 
 const getHeaders = () => {
   const token = localStorage.getItem('ts_token')
