@@ -847,7 +847,7 @@ export default function Discover() {
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
           <p className="text-sm font-semibold text-red-700 mb-1">Failed to load from database</p>
           <p className="text-xs text-red-500 font-mono break-all leading-relaxed">{apiError}</p>
-          <p className="text-xs text-red-400 mt-2">Make sure your FastAPI backend is running on port 8000 and the discover router is registered in main.py.</p>
+          <p className="text-xs text-red-400 mt-2">Make sure your FastAPI backend is running on port 8001 and the discover router is registered in main.py.</p>
         </div>
       )}
 

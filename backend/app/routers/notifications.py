@@ -9,7 +9,7 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 async def get_resolved_status(db, ntype: str, data: dict) -> str:
     if not data:
         return "pending"
-    
+
     if ntype == "connection_request":
         cid = data.get("connection_id")
         if not cid:
@@ -19,7 +19,25 @@ async def get_resolved_status(db, ntype: str, data: dict) -> str:
             return doc.get("status", "pending") if doc else "declined"
         except Exception:
             return "declined"
-            
+
+    elif ntype == "connection_accepted":
+        # The connection was accepted by definition when this notification was
+        # created — the sender's connection doc is already "accepted".
+        uid = data.get("user_id")
+        if not uid:
+            return "accepted"
+        try:
+            doc = await db.connections.find_one({
+                "$or": [
+                    {"sender_id": ObjectId(uid)},
+                    {"receiver_id": ObjectId(uid)},
+                ],
+                "status": "accepted",
+            })
+            return "accepted" if doc else "declined"
+        except Exception:
+            return "accepted"
+
     elif ntype == "project_invitation":
         iid = data.get("invitation_id")
         if not iid:
@@ -29,7 +47,7 @@ async def get_resolved_status(db, ntype: str, data: dict) -> str:
             return doc.get("status", "pending") if doc else "declined"
         except Exception:
             return "declined"
-            
+
     elif ntype == "project_join_request":
         rid = data.get("request_id")
         if not rid:
@@ -39,13 +57,22 @@ async def get_resolved_status(db, ntype: str, data: dict) -> str:
             return doc.get("status", "pending") if doc else "declined"
         except Exception:
             return "declined"
-            
+
     return "pending"
+
+
+# Notification types that carry a resolved_status
+_RESOLVABLE_TYPES = {
+    "connection_request",
+    "connection_accepted",
+    "project_invitation",
+    "project_join_request",
+}
 
 
 async def serialize(db, n: dict) -> dict:
     resolved_status = None
-    if n["type"] in ("connection_request", "project_invitation", "project_join_request"):
+    if n["type"] in _RESOLVABLE_TYPES:
         resolved_status = await get_resolved_status(db, n["type"], n.get("data", {}))
 
     return {

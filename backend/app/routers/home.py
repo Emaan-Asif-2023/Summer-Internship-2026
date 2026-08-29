@@ -505,8 +505,8 @@ async def get_home_stats(
         pass
 
     try:
-        stats["invitations"] = await db.connections.count_documents({
-            "receiver_id": uid,
+        stats["invitations"] = await db.project_invitations.count_documents({
+            "to_user_id": uid,
             "status": "pending"
         })
     except Exception:
@@ -530,20 +530,20 @@ async def get_partner_recommendations(
     # Collect IDs to exclude: self + connected + pending
     exclude_ids = {uid}
     try:
-        connected = await db.connection_requests.find(
+        connected = await db.connections.find(
             {
-                "$or": [{"from_user_id": uid}, {"to_user_id": uid}],
+                "$or": [{"sender_id": uid}, {"receiver_id": uid}],
                 "status": {"$in": ["accepted", "pending"]}
             },
-            {"from_user_id": 1, "to_user_id": 1}
+            {"sender_id": 1, "receiver_id": 1}
         ).to_list(length=300)
         for c in connected:
-            fid = c.get("from_user_id")
-            tid = c.get("to_user_id")
-            if fid:
-                exclude_ids.add(fid)
-            if tid:
-                exclude_ids.add(tid)
+            sid = c.get("sender_id")
+            rid = c.get("receiver_id")
+            if sid:
+                exclude_ids.add(sid)
+            if rid:
+                exclude_ids.add(rid)
     except Exception:
         pass
 
@@ -584,20 +584,20 @@ async def get_recommended_teammates(
 
     exclude_ids = {uid}
     try:
-        connected = await db.connection_requests.find(
+        connected = await db.connections.find(
             {
-                "$or": [{"from_user_id": uid}, {"to_user_id": uid}],
+                "$or": [{"sender_id": uid}, {"receiver_id": uid}],
                 "status": {"$in": ["accepted", "pending"]}
             },
-            {"from_user_id": 1, "to_user_id": 1}
+            {"sender_id": 1, "receiver_id": 1}
         ).to_list(length=300)
         for c in connected:
-            fid = c.get("from_user_id")
-            tid = c.get("to_user_id")
-            if fid:
-                exclude_ids.add(fid)
-            if tid:
-                exclude_ids.add(tid)
+            sid = c.get("sender_id")
+            rid = c.get("receiver_id")
+            if sid:
+                exclude_ids.add(sid)
+            if rid:
+                exclude_ids.add(rid)
     except Exception:
         pass
 

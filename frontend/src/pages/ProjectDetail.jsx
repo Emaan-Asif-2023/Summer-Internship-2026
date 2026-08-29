@@ -69,7 +69,7 @@ export default function ProjectDetail() {
   const [loadingRequests, setLoadingRequests] = useState(false)
 
   const authHeaders = () => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('ts_token')
     return token ? { Authorization: `Bearer ${token}` } : {}
   }
 

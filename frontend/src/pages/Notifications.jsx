@@ -59,10 +59,13 @@ const ICON_COLORS = {
   message: 'text-blue-500 bg-blue-50',
 }
 
+// Notification types that need actionable accept/decline buttons
+const ACTIONABLE_TYPES = new Set(['connection_request', 'project_invitation', 'project_join_request'])
+
 function NotificationCard({ n, onAction, onOpen }) {
   const Icon = ICONS[n.type] || Bell
   const colorClass = ICON_COLORS[n.type] || 'text-slate-500 bg-slate-100'
-  const isActionable = (n.type === 'connection_request' || n.type === 'project_invitation' || n.type === 'project_join_request') && (!n.resolved_status || n.resolved_status === 'pending')
+  const isActionable = ACTIONABLE_TYPES.has(n.type) && (!n.resolved_status || n.resolved_status === 'pending')
 
   return (
     <div className={`bg-white rounded-2xl p-4 border transition-all flex items-start gap-3 ${
