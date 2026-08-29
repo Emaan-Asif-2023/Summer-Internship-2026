@@ -45,6 +45,9 @@ class RespondPayload(BaseModel):
 # ---------- Helpers ----------
 
 def user_summary(u: dict) -> dict:
+    avatar = u.get("avatar_url")
+    if avatar in (None, "None", "null", ""):
+        avatar = None
     return {
         "id": str(u["_id"]),
         "name": u.get("name"),
@@ -53,7 +56,7 @@ def user_summary(u: dict) -> dict:
         "university": u.get("university"),
         "semester": u.get("semester"),
         "skills": u.get("skills", []),
-        "avatar_url": u.get("avatar_url"),
+        "avatar_url": avatar,
     }
 
 
@@ -167,6 +170,10 @@ async def get_project_detail(
     data = await serialize_project(db, proj, current_user["_id"])
     members = await db.users.find({"_id": {"$in": proj.get("member_ids", [])}}).to_list(length=200)
     data["members"] = [user_summary(m) for m in members]
+    
+    owner_user = await db.users.find_one({"_id": proj["owner_id"]})
+    data["owner"] = user_summary(owner_user) if owner_user else None
+    data["member_ids"] = [str(mid) for mid in proj.get("member_ids", [])]
     return data
 
 

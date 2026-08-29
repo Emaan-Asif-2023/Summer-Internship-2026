@@ -33,6 +33,39 @@ const getInitials = (name) => {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
+const AVATAR_COLORS = [
+  'from-indigo-500 to-purple-600',
+  'from-emerald-400 to-teal-600',
+  'from-orange-400 to-rose-500',
+  'from-pink-500 to-rose-600',
+  'from-blue-500 to-indigo-600',
+  'from-violet-500 to-purple-700',
+]
+
+const renderPeerAvatar = (peer, sizeClass = "w-10 h-10", textClass = "text-xs") => {
+  const initials = getInitials(peer?.name)
+  const avatar = peer?.avatar_url
+  const hasAvatar = avatar && avatar !== 'None' && avatar !== 'null' && avatar !== ''
+
+  if (hasAvatar && !avatar.startsWith('preset:')) {
+    return <img src={avatar} alt={peer.name} className={`${sizeClass} rounded-full object-cover border border-slate-100 shrink-0`} />
+  }
+  
+  let gradient = 'from-primary to-secondary'
+  if (hasAvatar && avatar.startsWith('preset:')) {
+    gradient = avatar.split('preset:')[1]
+  } else {
+    const colorIdx = (peer?.name || '').length % AVATAR_COLORS.length
+    gradient = AVATAR_COLORS[colorIdx]
+  }
+  
+  return (
+    <div className={`${sizeClass} rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold shrink-0 ${textClass} shadow-sm`}>
+      {initials}
+    </div>
+  )
+}
+
 const formatTime = (isoString) => {
   try {
     return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -105,7 +138,7 @@ function MessageBubble({ msg, isMe }) {
 
 export default function Chats() {
   const { user: currentUser } = useAuth()
-  const { subscribe } = useNotifications()
+  const { subscribe, fetchNotifications } = useNotifications()
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -151,8 +184,6 @@ export default function Chats() {
         const found = convos.find(c => c.peer.id === routeId)
         initialPeer = found ? found.peer : routePeer
         setShowMobileChat(true)
-      } else if (convos.length > 0) {
-        initialPeer = convos[0].peer
       }
       if (initialPeer) setSelectedPeer(initialPeer)
     } catch (e) {
@@ -165,6 +196,17 @@ export default function Chats() {
   }, [location.state])
 
   useEffect(() => { fetchConversations() }, [fetchConversations])
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        setSelectedPeer(null)
+        setShowMobileChat(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   // ---------- Load message history when peer changes ----------
 
@@ -183,6 +225,7 @@ export default function Chats() {
         // Mark conversation read and clear local unread badge
         await api.post(`/api/messages/${pid}/read`, {}, { headers: authHeaders() })
         setConversations(prev => prev.map(c => c.peer.id === pid ? { ...c, unread_count: 0 } : c))
+        fetchNotifications()
       } catch (e) {
         console.error('Failed to load messages:', e)
         toast.error('Failed to load conversation history')
@@ -209,7 +252,9 @@ export default function Chats() {
 
         if (msg.sender_id === activePeerId) {
           setMessages(prev => [...prev, msg])
-          api.post(`/api/messages/${msg.sender_id}/read`, {}, { headers: authHeaders() }).catch(() => {})
+          api.post(`/api/messages/${msg.sender_id}/read`, {}, { headers: authHeaders() })
+            .then(() => fetchNotifications())
+            .catch(() => {})
         } else {
           toast(`New message`, {
             icon: '💬',
@@ -317,7 +362,7 @@ export default function Chats() {
   })
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 h-[calc(100vh-80px)] flex flex-col">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 h-[calc(100dvh-140px)] lg:h-[calc(100vh-80px)] flex flex-col">
       <div className="flex items-center justify-between mb-4 shrink-0">
         <div>
           <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2"
@@ -404,15 +449,7 @@ export default function Chats() {
                     }`}
                   >
                     <div className="relative shrink-0">
-                      {peer.avatar_url ? (
-                        <img src={peer.avatar_url} alt={peer.name} className="w-10 h-10 rounded-full object-cover border border-slate-100" />
-                      ) : (
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs ${
-                          isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'
-                        }`}>
-                          {getInitials(peer.name)}
-                        </div>
-                      )}
+                      {renderPeerAvatar(peer, "w-10 h-10", "text-xs")}
                       {convo.online && (
                         <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />
                       )}
@@ -457,13 +494,7 @@ export default function Chats() {
                   </button>
 
                   <div className="relative shrink-0">
-                    {selectedPeer.avatar_url ? (
-                      <img src={selectedPeer.avatar_url} alt={selectedPeer.name} className="w-10 h-10 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs">
-                        {getInitials(selectedPeer.name)}
-                      </div>
-                    )}
+                    {renderPeerAvatar(selectedPeer, "w-10 h-10", "text-xs")}
                   </div>
 
                   <div className="min-w-0">

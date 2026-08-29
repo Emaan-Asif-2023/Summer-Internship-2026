@@ -272,7 +272,7 @@ async def search_projects(
         if clean:
             q["skills"] = {"$all": clean}
 
-    total = await db.teams.count_documents(q)
+    total = await db.projects.count_documents(q)
 
     sort_map = {
         "newest": ("created_at", -1),
@@ -290,7 +290,7 @@ async def search_projects(
     pipeline.append({"$skip": (page - 1) * limit})
     pipeline.append({"$limit": limit})
 
-    docs = await db.teams.aggregate(pipeline).to_list(length=limit)
+    docs = await db.projects.aggregate(pipeline).to_list(length=limit)
     results = [_ser(d) for d in docs]
 
     for r in results:

@@ -104,6 +104,9 @@ async def get_incoming_requests(
     ]
 
     requests = await db.connections.aggregate(pipeline).to_list(length=100)
+    for r in requests:
+        if "sender" in r and r["sender"].get("avatar_url") in (None, "None", "null", ""):
+            r["sender"]["avatar_url"] = None
     return requests
 
 
@@ -191,7 +194,7 @@ async def get_connections(
                 "department": other_user.get("department"),
                 "semester": other_user.get("semester"),
                 "skills": other_user.get("skills", []),
-                "avatar_url": other_user.get("avatar_url"),
+                "avatar_url": None if other_user.get("avatar_url") in (None, "None", "null", "") else other_user.get("avatar_url"),
                 "university": other_user.get("university")
             }
         })

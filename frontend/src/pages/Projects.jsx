@@ -37,6 +37,7 @@ const STATUS_CONFIG = {
 }
 
 const TABS = [
+  { key: 'all', label: 'All Projects', icon: FolderKanban },
   { key: 'my', label: 'My Projects', icon: FolderKanban },
   { key: 'joined', label: 'Joined', icon: Users },
   { key: 'invitations', label: 'Invitations', icon: Mail },
@@ -556,9 +557,10 @@ function ConfirmDeleteModal({ project, onClose, onConfirmed }) {
 // ---------- Main Page ----------
 
 export default function Projects() {
-  const [tab, setTab] = useState('my')
+  const [tab, setTab] = useState('all')
   const [requestsSubTab, setRequestsSubTab] = useState('received')
 
+  const [allProjects, setAllProjects] = useState([])
   const [myProjects, setMyProjects] = useState([])
   const [joinedProjects, setJoinedProjects] = useState([])
   const [invitations, setInvitations] = useState([])
@@ -574,7 +576,13 @@ export default function Projects() {
   const loadTabData = useCallback(async (activeTab) => {
     setLoading(true)
     try {
-      if (activeTab === 'my') {
+      if (activeTab === 'all') {
+        const [my, joined] = await Promise.all([
+          apiRequest('/projects/my'),
+          apiRequest('/projects/joined')
+        ])
+        setAllProjects([...my, ...joined])
+      } else if (activeTab === 'my') {
         setMyProjects(await apiRequest('/projects/my'))
       } else if (activeTab === 'joined') {
         setJoinedProjects(await apiRequest('/projects/joined'))
@@ -628,7 +636,7 @@ export default function Projects() {
     try {
       await apiRequest(`/projects/${project.id}/leave`, { method: 'POST' })
       toast.success(`Left ${project.title}`)
-      loadTabData('joined')
+      loadTabData(tab)
     } catch (err) {
       toast.error(err.message)
     }
@@ -673,6 +681,27 @@ export default function Projects() {
           </button>
         ))}
       </div>
+
+      {/* All Projects */}
+      {tab === 'all' && (
+        <Section loading={loading} empty={allProjects.length === 0} emptyIcon={FolderKanban} emptyText="You don't have any projects yet. Explore Discover to find one or create a new one.">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {allProjects.map(p => (
+              p.is_owner ? (
+                <MyProjectCard
+                  key={p.id}
+                  project={p}
+                  onEdit={setFormModal}
+                  onDelete={setDeleteModalProject}
+                  onInvite={setInviteModalProject}
+                />
+              ) : (
+                <JoinedProjectCard key={p.id} project={p} onLeave={handleLeave} />
+              )
+            ))}
+          </div>
+        </Section>
+      )}
 
       {/* My Projects */}
       {tab === 'my' && (
@@ -760,7 +789,7 @@ export default function Projects() {
         <ProjectFormModal
           project={formModal === 'create' ? null : formModal}
           onClose={() => setFormModal(null)}
-          onSaved={() => { setFormModal(null); loadTabData('my') }}
+          onSaved={() => { setFormModal(null); loadTabData(tab) }}
         />
       )}
       {inviteModalProject && (
@@ -770,7 +799,7 @@ export default function Projects() {
         <ConfirmDeleteModal
           project={deleteModalProject}
           onClose={() => setDeleteModalProject(null)}
-          onConfirmed={() => { setDeleteModalProject(null); loadTabData('my') }}
+          onConfirmed={() => { setDeleteModalProject(null); loadTabData(tab) }}
         />
       )}
     </div>

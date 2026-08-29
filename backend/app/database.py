@@ -32,8 +32,8 @@ async def create_indexes(db):
     """Create MongoDB indexes on startup."""
     await db.users.create_index("email", unique=True)
     await db.users.create_index("skills")
-    await db.teams.create_index("owner_id")
-    await db.teams.create_index("status")
+    await db.projects.create_index("owner_id")
+    await db.projects.create_index("status")
     await db.messages.create_index([("conversation_id", 1), ("created_at", 1)])
     await db.notifications.create_index([("user_id", 1), ("read", 1)])
     await db.connection_requests.create_index([("from_user_id", 1), ("to_user_id", 1)])

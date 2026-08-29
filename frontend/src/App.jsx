@@ -17,6 +17,7 @@ import Notifications from './pages/Notifications.jsx'
 import PublicProfile from './pages/PublicProfile.jsx'
 import Chats from './pages/Chats.jsx'
 import Projects from './pages/Projects.jsx'
+import ProjectDetail from './pages/ProjectDetail.jsx'
 
 // ── Splash Screen ──────────────────────────────────────────
 
@@ -227,6 +228,9 @@ function App() {
 
             <Route path="/projects" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
               <Route index element={<Projects />} />
+            </Route>
+            <Route path="/projects/:projectId" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+              <Route index element={<ProjectDetail />} />
             </Route>
 
             <Route path="/chats" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>

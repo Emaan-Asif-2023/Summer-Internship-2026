@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useNotifications } from '../context/NotificationContext.jsx'
 import api from '../api/axios.js'
@@ -62,7 +62,7 @@ const ICON_COLORS = {
 function NotificationCard({ n, onAction, onOpen }) {
   const Icon = ICONS[n.type] || Bell
   const colorClass = ICON_COLORS[n.type] || 'text-slate-500 bg-slate-100'
-  const isActionable = n.type === 'connection_request' || n.type === 'project_invitation' || n.type === 'project_join_request'
+  const isActionable = (n.type === 'connection_request' || n.type === 'project_invitation' || n.type === 'project_join_request') && (!n.resolved_status || n.resolved_status === 'pending')
 
   return (
     <div className={`bg-white rounded-2xl p-4 border transition-all flex items-start gap-3 ${
@@ -92,6 +92,17 @@ function NotificationCard({ n, onAction, onOpen }) {
               <Check size={12} /> Accept
             </button>
           </div>
+        ) : n.resolved_status && n.resolved_status !== 'pending' ? (
+          <div className="mt-3">
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold ${
+              n.resolved_status === 'accepted'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                : 'bg-rose-50 text-rose-700 border border-rose-100'
+            }`}>
+              {n.resolved_status === 'accepted' ? <Check size={12} /> : <X size={12} />}
+              {n.resolved_status === 'accepted' ? 'Accepted' : 'Declined'}
+            </span>
+          </div>
         ) : (
           <button
             onClick={() => onOpen(n)}
@@ -110,11 +121,19 @@ function NotificationCard({ n, onAction, onOpen }) {
 export default function Notifications() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { notifications, markRead, markAllRead, fetchNotifications } = useNotifications()
 
-  const [tab, setTab] = useState('all')
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'all')
   const [activeConnections, setActiveConnections] = useState([])
   const [loadingConnections, setLoadingConnections] = useState(false)
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    if (tabParam) {
+      setTab(tabParam)
+    }
+  }, [searchParams])
 
   const fetchActiveConnections = useCallback(async () => {
     setLoadingConnections(true)

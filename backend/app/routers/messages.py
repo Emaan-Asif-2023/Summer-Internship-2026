@@ -118,7 +118,7 @@ async def get_conversations(
                 "id": str(peer["_id"]),
                 "name": peer.get("name"),
                 "university": peer.get("university"),
-                "avatar_url": peer.get("avatar_url"),
+                "avatar_url": None if peer.get("avatar_url") in (None, "None", "null", "") else peer.get("avatar_url"),
             },
             "last_message": serialize_message(last_msg) if last_msg else None,
             "unread_count": unread_count,

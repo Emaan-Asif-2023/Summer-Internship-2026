@@ -424,11 +424,17 @@ export default function Discover() {
 
   const type = searchParams.get('type') || 'students'
 
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [search, setSearch] = useState(() => searchParams.get('search') || '')
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get('search') || '')
   const [department, setDepartment] = useState('')
   const [university, setUniversity] = useState('')
   const [semester, setSemester] = useState('')
+
+  useEffect(() => {
+    const searchParam = searchParams.get('search') || ''
+    setSearch(searchParam)
+    setDebouncedSearch(searchParam)
+  }, [searchParams])
   
   const [selectedSkills, setSelectedSkills] = useState(() => {
     const skillParam = searchParams.get('skill')

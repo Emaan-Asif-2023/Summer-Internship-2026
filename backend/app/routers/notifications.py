@@ -6,7 +6,48 @@ from bson import ObjectId
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
-def serialize(n: dict) -> dict:
+async def get_resolved_status(db, ntype: str, data: dict) -> str:
+    if not data:
+        return "pending"
+    
+    if ntype == "connection_request":
+        cid = data.get("connection_id")
+        if not cid:
+            return "pending"
+        try:
+            doc = await db.connections.find_one({"_id": ObjectId(cid)})
+            return doc.get("status", "pending") if doc else "declined"
+        except Exception:
+            return "declined"
+            
+    elif ntype == "project_invitation":
+        iid = data.get("invitation_id")
+        if not iid:
+            return "pending"
+        try:
+            doc = await db.project_invitations.find_one({"_id": ObjectId(iid)})
+            return doc.get("status", "pending") if doc else "declined"
+        except Exception:
+            return "declined"
+            
+    elif ntype == "project_join_request":
+        rid = data.get("request_id")
+        if not rid:
+            return "pending"
+        try:
+            doc = await db.project_requests.find_one({"_id": ObjectId(rid)})
+            return doc.get("status", "pending") if doc else "declined"
+        except Exception:
+            return "declined"
+            
+    return "pending"
+
+
+async def serialize(db, n: dict) -> dict:
+    resolved_status = None
+    if n["type"] in ("connection_request", "project_invitation", "project_join_request"):
+        resolved_status = await get_resolved_status(db, n["type"], n.get("data", {}))
+
     return {
         "id": str(n["_id"]),
         "type": n["type"],
@@ -14,6 +55,7 @@ def serialize(n: dict) -> dict:
         "body": n.get("body", ""),
         "data": n.get("data", {}),
         "read": n.get("read", False),
+        "resolved_status": resolved_status,
         "created_at": n["created_at"],
     }
 
@@ -26,7 +68,7 @@ async def get_notifications(
 ):
     docs = await db.notifications.find({"user_id": current_user["_id"]}) \
         .sort("created_at", -1).to_list(length=limit)
-    return [serialize(d) for d in docs]
+    return [await serialize(db, d) for d in docs]
 
 
 @router.get("/unread-count")

@@ -70,10 +70,10 @@ const STATUS_CONFIG = {
 }
 
 const STAT_CARDS = [
-  { key: 'projects_joined', label: 'Projects Joined', icon: FolderSearch, color: 'bg-indigo-50 text-indigo-600' },
-  { key: 'teammates', label: 'Teammates', icon: Users, color: 'bg-emerald-50 text-emerald-600' },
-  { key: 'messages', label: 'Messages', icon: Mail, color: 'bg-amber-50 text-amber-600' },
-  { key: 'invitations', label: 'Invitations', icon: UserPlus, color: 'bg-rose-50 text-rose-600' },
+  { key: 'projects_joined', label: 'Projects Joined', icon: FolderSearch, color: 'bg-indigo-50 text-indigo-600', to: '/projects' },
+  { key: 'teammates', label: 'Connections', icon: Users, color: 'bg-emerald-50 text-emerald-600', to: '/notifications?tab=connections' },
+  { key: 'messages', label: 'Messages', icon: Mail, color: 'bg-amber-50 text-amber-600', to: '/chats' },
+  { key: 'invitations', label: 'Invitations', icon: UserPlus, color: 'bg-rose-50 text-rose-600', to: '/notifications?tab=invitations' },
 ]
 
 // ── Helpers ────────────────────────────────────────────────
@@ -358,9 +358,10 @@ export default function Home() {
         {loadingStats
           ? Array.from({ length: 4 }).map((_, i) => <StatSkeleton key={i} />)
           : STAT_CARDS.map(sc => (
-              <div
+              <button
                 key={sc.key}
-                className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 hover:shadow-card-hover transition-shadow"
+                onClick={() => sc.to && navigate(sc.to)}
+                className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 hover:shadow-card-hover hover:-translate-y-0.5 transition-all text-left w-full cursor-pointer"
               >
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${sc.color}`}>
                   <sc.icon size={18} />
@@ -369,7 +370,7 @@ export default function Home() {
                   {stats?.[sc.key] ?? 0}
                 </p>
                 <p className="text-xs text-slate-500 mt-0.5">{sc.label}</p>
-              </div>
+              </button>
             ))
         }
       </div>

@@ -469,7 +469,7 @@ async def get_home_stats(
     stats = {"projects_joined": 0, "teammates": 0, "messages": 0, "invitations": 0}
 
     try:
-        stats["projects_joined"] = await db.teams.count_documents({
+        stats["projects_joined"] = await db.projects.count_documents({
             "$or": [{"owner_id": uid}, {"member_ids": uid}]
         })
     except Exception:
@@ -626,7 +626,7 @@ async def get_recent_projects(
     ]
 
     try:
-        docs = await db.teams.aggregate(pipeline).to_list(length=5)
+        docs = await db.projects.aggregate(pipeline).to_list(length=5)
     except Exception:
         return []
 
