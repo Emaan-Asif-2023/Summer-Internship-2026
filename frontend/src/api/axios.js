@@ -4,10 +4,20 @@ import axios from 'axios'
 //   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000',
 //   timeout: 15000,
 // })
+const getBaseURL = () => {
+  const envUrl = import.meta.env.VITE_API_URL
+  if (envUrl) {
+    return envUrl.replace(/\/api\/?$/, '')
+  }
+  const hostname = window.location.hostname
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://127.0.0.1:8001'
+  }
+  return 'https://teamsync-m39e.onrender.com'
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL 
-    ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
-    : 'http://127.0.0.1:8001',
+  baseURL: getBaseURL(),
   timeout: 15000,
 })
 

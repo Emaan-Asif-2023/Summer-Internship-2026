@@ -3,7 +3,17 @@ import { useAuth } from './AuthContext.jsx'
 import api from '../api/axios.js'
 import toast from 'react-hot-toast'
 
-const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL
+  if (envUrl) return envUrl
+  const hostname = window.location.hostname
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://127.0.0.1:8001/api'
+  }
+  return 'https://teamsync-m39e.onrender.com/api'
+}
+
+const rawApiUrl = getApiBaseUrl()
 const API_BASE = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`
 const WS_URL = API_BASE.replace(/^http/, 'ws').replace(/\/api\/?$/, '') + '/ws/chat'
 
