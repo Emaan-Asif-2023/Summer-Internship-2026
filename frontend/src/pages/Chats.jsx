@@ -282,6 +282,7 @@ export default function Chats() {
 
     const unsubscribe = subscribe((data) => {
       if (data.event === 'new_message') {
+        console.log('[CHAT] new_message received:', data.message)
         const msg = data.message
         const activePeerId = peerIdOf(selectedPeerRef.current)
 
