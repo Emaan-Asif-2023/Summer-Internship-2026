@@ -285,8 +285,15 @@ export default function Chats() {
         const res = await api.get(`/api/messages/${pid}?limit=50`, { headers: authHeaders() })
         const fresh = res.data || []
         setMessages(prev => {
-          // Only update if there are new messages
-          if (fresh.length > prev.length) return fresh
+          if (fresh.length > prev.length) {
+            // New messages arrived — mark them read
+            api.post(`/api/messages/${pid}/read`, {}, { headers: authHeaders() })
+              .then(() => fetchNotifications())
+              .catch(() => {})
+            // Clear unread badge
+            setConversations(c => c.map(conv => conv.peer.id === pid ? { ...conv, unread_count: 0 } : conv))
+            return fresh
+          }
           return prev
         })
       } catch { /* silent */ }
@@ -318,11 +325,15 @@ export default function Chats() {
             if (prev.some(m => m.id === msg.id)) return prev
             return [...prev, msg]
           })
-          // Mark as read only if the other person sent it
+          // Mark as read immediately since the conversation is open
           if (msg.sender_id === activePeerId) {
             api.post(`/api/messages/${msg.sender_id}/read`, {}, { headers: authHeaders() })
               .then(() => fetchNotifications())
               .catch(() => {})
+            // Clear unread badge in sidebar
+            setConversations(prev => prev.map(c =>
+              c.peer.id === activePeerId ? { ...c, unread_count: 0 } : c
+            ))
           }
         } else {
           // Message is from someone not currently open — show toast
@@ -354,7 +365,9 @@ export default function Chats() {
       if (data.event === 'read_receipt') {
         const activePeerId = peerIdOf(selectedPeerRef.current)
         if (data.by === activePeerId) {
-          setMessages(prev => prev.map(m => (m.sender_id === currentUser.id ? { ...m, read: true } : m)))
+          setMessages(prev => prev.map(m =>
+            m.sender_id === currentUser.id ? { ...m, read: true, read_at: data.read_at } : m
+          ))
         }
       }
     })
