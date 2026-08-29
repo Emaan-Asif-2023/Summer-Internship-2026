@@ -239,21 +239,41 @@ export default function Chats() {
     loadHistory()
   }, [selectedPeer])
 
+  // Scroll to bottom whenever messages load or a new one arrives
   useEffect(() => {
     if (messages.length === 0) return
     const isNewMessage = messages.length > prevMessagesLengthRef.current && prevMessagesLengthRef.current > 0
     prevMessagesLengthRef.current = messages.length
 
-    const scrollToBottom = (behavior = 'auto') => {
-      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' })
+    const doScroll = () => {
+      const container = messagesContainerRef.current
+      if (!container) return
+      if (isNewMessage) {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' })
+      } else {
+        container.scrollTop = container.scrollHeight
+      }
     }
 
-    // Fire immediately, then again after layout settles
-    scrollToBottom(isNewMessage ? 'smooth' : 'auto')
-    const t1 = setTimeout(() => scrollToBottom(isNewMessage ? 'smooth' : 'auto'), 100)
-    const t2 = setTimeout(() => scrollToBottom('auto'), 400)
-    return () => { clearTimeout(t1); clearTimeout(t2) }
+    doScroll()
+    requestAnimationFrame(doScroll)
+    setTimeout(doScroll, 100)
+    setTimeout(doScroll, 300)
   }, [messages])
+
+  // Also scroll when loading finishes (container becomes visible after spinner)
+  useEffect(() => {
+    if (loadingMessages) return
+    const doScroll = () => {
+      const container = messagesContainerRef.current
+      if (!container) return
+      container.scrollTop = container.scrollHeight
+    }
+    doScroll()
+    requestAnimationFrame(doScroll)
+    setTimeout(doScroll, 100)
+    setTimeout(doScroll, 300)
+  }, [loadingMessages])
 
   // ---------- Listen on the shared app-wide socket (owned by NotificationContext) ----------
 
