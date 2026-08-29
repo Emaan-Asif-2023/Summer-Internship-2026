@@ -73,7 +73,6 @@ const STAT_CARDS = [
   { key: 'projects_joined', label: 'Projects Joined', icon: FolderSearch, color: 'bg-indigo-50 text-indigo-600', to: '/projects' },
   { key: 'teammates', label: 'Connections', icon: Users, color: 'bg-emerald-50 text-emerald-600', to: '/notifications?tab=connections' },
   { key: 'messages', label: 'Messages', icon: Mail, color: 'bg-amber-50 text-amber-600', to: '/chats' },
-  { key: 'invitations', label: 'Invitations', icon: UserPlus, color: 'bg-rose-50 text-rose-600', to: '/notifications?tab=invitations' },
 ]
 
 // ── Helpers ────────────────────────────────────────────────
@@ -354,9 +353,9 @@ export default function Home() {
       </div>
 
       {/* ── Stats Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         {loadingStats
-          ? Array.from({ length: 4 }).map((_, i) => <StatSkeleton key={i} />)
+          ? Array.from({ length: 3 }).map((_, i) => <StatSkeleton key={i} />)
           : STAT_CARDS.map(sc => (
               <button
                 key={sc.key}

@@ -466,40 +466,48 @@ async def get_home_stats(
         raise HTTPException(status_code=401, detail="Authentication required")
 
     uid = ObjectId(current_user["id"])
-    stats = {"projects_joined": 0, "teammates": 0, "messages": 0, "invitations": 0}
+    stats = {"projects_joined": 0, "teammates": 0, "messages": 0}
 
     try:
         stats["projects_joined"] = await db.projects.count_documents({
-            "$or": [{"owner_id": uid}, {"member_ids": uid}]
-        })
-    except Exception:
-        pass
-
-    try:
-        stats["teammates"] = await db.connection_requests.count_documents({
             "$or": [
-                {"from_user_id": uid, "status": "accepted"},
-                {"to_user_id": uid, "status": "accepted"},
+                {"owner_id": uid},
+                {"owner_id": str(uid)},
+                {"member_ids": uid},
+                {"member_ids": str(uid)}
             ]
         })
     except Exception:
         pass
 
     try:
-        convs = await db.conversations.find(
-            {"participants": uid}, {"_id": 1}
-        ).to_list(length=200)
-        if convs:
-            conv_ids = [c["_id"] for c in convs]
-            stats["messages"] = await db.messages.count_documents(
-                {"conversation_id": {"$in": conv_ids}}
-            )
+        stats["teammates"] = await db.connections.count_documents({
+            "status": "accepted",
+            "$or": [
+                {"sender_id": uid},
+                {"sender_id": str(uid)},
+                {"receiver_id": uid},
+                {"receiver_id": str(uid)}
+            ]
+        })
     except Exception:
         pass
 
     try:
-        stats["invitations"] = await db.connection_requests.count_documents({
-            "to_user_id": uid,
+        stats["messages"] = await db.messages.count_documents({
+            "$or": [
+                {"sender_id": uid},
+                {"sender_id": str(uid)},
+                {"receiver_id": uid},
+                {"receiver_id": str(uid)}
+            ]
+        })
+    except Exception:
+        pass
+
+    try:
+        stats["invitations"] = await db.connections.count_documents({
+            "receiver_id": uid,
             "status": "pending"
         })
     except Exception:
