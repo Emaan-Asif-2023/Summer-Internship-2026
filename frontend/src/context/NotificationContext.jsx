@@ -76,9 +76,10 @@ export function NotificationProvider({ children }) {
       }
 
       ws.onmessage = (event) => {
-        if (event.data === 'pong') return  // ignore server pong if any
+        if (event.data === 'pong') return
         let data
         try { data = JSON.parse(event.data) } catch { return }
+        console.log('[WS] received:', data.event)
 
         if (data.event === 'notification') {
           const n = data.notification
@@ -100,6 +101,7 @@ export function NotificationProvider({ children }) {
           }
         }
 
+        // Fan out to all subscribers (Chats.jsx uses this for new_message / read_receipt)
         listenersRef.current.forEach(fn => fn(data))
       }
 

@@ -240,21 +240,18 @@ export default function Chats() {
   }, [selectedPeer])
 
   useEffect(() => {
-    if (!messagesContainerRef.current) return
-
-    const container = messagesContainerRef.current
+    if (messages.length === 0) return
     const isNewMessage = messages.length > prevMessagesLengthRef.current && prevMessagesLengthRef.current > 0
     prevMessagesLengthRef.current = messages.length
 
-    const performScroll = () => {
-      container.scrollTo({
-        top: container.scrollHeight,
+    // Small delay to let the DOM paint before scrolling
+    const t = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({
         behavior: isNewMessage ? 'smooth' : 'auto',
+        block: 'end',
       })
-    }
-
-    performScroll()
-    requestAnimationFrame(performScroll)
+    }, 30)
+    return () => clearTimeout(t)
   }, [messages])
 
   // ---------- Listen on the shared app-wide socket (owned by NotificationContext) ----------
