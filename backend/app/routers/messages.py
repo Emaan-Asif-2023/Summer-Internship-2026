@@ -192,11 +192,7 @@ async def send_text_message(
     serialized = serialize_message(msg)
 
     await manager.send_to_user(str(pid), {"event": "new_message", "message": serialized})
-    await upsert_message_notification(
-        db, recipient_id=pid, sender_id=user_id,
-        sender_name=current_user.get("name", "Someone"),
-        preview=text[:120],
-    )
+    print(f"[WS] send_to_user {str(pid)} — active connections: {list(manager.active.keys())}", flush=True)
     return serialized
 
 
@@ -244,6 +240,7 @@ async def send_file_message(
     serialized = serialize_message(msg)
 
     await manager.send_to_user(str(pid), {"event": "new_message", "message": serialized})
+    print(f"[WS] send_to_user {str(pid)} — active connections: {list(manager.active.keys())}", flush=True)
     preview = "📷 Photo" if is_image else f"📎 {file.filename}"
     await upsert_message_notification(
         db, recipient_id=pid, sender_id=user_id,
