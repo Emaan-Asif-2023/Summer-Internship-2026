@@ -67,10 +67,12 @@ export function NotificationProvider({ children }) {
       wsRef.current = ws
 
       ws.onopen = () => {
+        console.log('[WS] connected')
         // Send a ping every 30s to prevent Render from closing the idle connection
         pingInterval = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send('ping')
+            console.log('[WS] ping sent')
           }
         }, 30000)
       }
@@ -105,12 +107,13 @@ export function NotificationProvider({ children }) {
         listenersRef.current.forEach(fn => fn(data))
       }
 
-      ws.onerror = () => console.error('Notification WebSocket error')
+      ws.onerror = (e) => console.error('[WS] error', e)
 
-      ws.onclose = () => {
+      ws.onclose = (e) => {
+        console.log('[WS] closed — code:', e.code, 'reason:', e.reason)
         clearInterval(pingInterval)
         if (!dead) {
-          // Reconnect after 3 seconds
+          console.log('[WS] reconnecting in 3s...')
           reconnectTimeout = setTimeout(connect, 3000)
         }
       }
