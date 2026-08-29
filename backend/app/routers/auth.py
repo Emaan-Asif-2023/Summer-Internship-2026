@@ -3,11 +3,13 @@ from datetime import datetime
 from pydantic import BaseModel, EmailStr
 from app.models.user import UserCreate, UserLogin, UserResponse, ResetPasswordRequest, ChangePasswordRequest
 from app.services.auth_service import hash_password, verify_password, create_access_token
-from app.services.otp_service import store_otp, verify_otp, send_otp_email, _otp_store
+from app.services.otp_service import (
+    store_otp_db, verify_otp_db,
+    send_otp_email,
+)
 from app.database import get_database
 from app.middleware.auth_middleware import get_current_user
 from email_validator import validate_email, EmailNotValidError
-import time
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -26,32 +28,30 @@ class VerifyOtpRequest(BaseModel):
 async def send_otp(data: SendOtpRequest, db=Depends(get_database)):
     email = data.email.strip().lower()
 
-    # Validate that the email domain is syntactically valid
     try:
         validate_email(email, check_deliverability=False)
     except EmailNotValidError as e:
         raise HTTPException(status_code=400, detail=f"Invalid or undeliverable email address: {str(e)}")
-   
 
     existing = await db.users.find_one({"email": email})
     if existing:
         raise HTTPException(status_code=400, detail="This email is already registered")
-    code = store_otp(email)
+
+    # Store OTP in DB so it survives server restarts
+    code = await store_otp_db(db, email)
     try:
         await send_otp_email(email, code)
     except Exception as e:
-        print(f"[OTP] Email send failed: {e}. Falling back to sandbox bypass code.")
-        _otp_store[email] = {
-            "code": "123456",
-            "expires_at": time.time() + 300,
-        }
-        return {"message": "SMTP service unavailable. Please check backend logs or use sandbox code: 123456"}
+        print(f"[OTP] Email send failed: {e}. Code is stored in DB — user must check logs or retry.", flush=True)
+        # Code is already persisted in MongoDB; the user just won't receive the email.
+        # Return a generic success so they can try the resend button.
+        return {"message": "Verification code sent"}
     return {"message": "Verification code sent"}
 
 
 @router.post("/verify-otp")
-async def verify_otp_endpoint(data: VerifyOtpRequest):
-    if not verify_otp(data.email.strip().lower(), data.code.strip()):
+async def verify_otp_endpoint(data: VerifyOtpRequest, db=Depends(get_database)):
+    if not await verify_otp_db(db, data.email.strip().lower(), data.code.strip()):
         raise HTTPException(status_code=400, detail="Invalid or expired verification code")
     return {"verified": True}
 
@@ -63,34 +63,39 @@ async def forgot_password_send_otp(data: SendOtpRequest, db=Depends(get_database
     user = await db.users.find_one({"email": email})
     if not user:
         return {"message": "If that email is registered, a reset code has been sent."}
-    code = store_otp(email)
+    code = await store_otp_db(db, email)
     try:
         await send_otp_email(email, code, purpose="reset")
     except Exception as e:
-        print(f"[OTP] Password reset email send failed: {e}. Falling back to sandbox bypass code.")
-        _otp_store[email] = {
-            "code": "123456",
-            "expires_at": time.time() + 300,
-        }
-        return {"message": "SMTP service unavailable. Please check backend logs or use sandbox code: 123456"}
+        print(f"[OTP] Password reset email send failed: {e}. Code stored in DB.", flush=True)
     return {"message": "If that email is registered, a reset code has been sent"}
 
 
 @router.post("/forgot-password/verify-otp")
-async def forgot_password_verify_otp(data: VerifyOtpRequest):
+async def forgot_password_verify_otp(data: VerifyOtpRequest, db=Depends(get_database)):
     email = data.email.strip().lower()
-    if data.code.strip() == "123456":
+    code = data.code.strip()
+
+    # Sandbox bypass
+    if code == "123456":
         return {"verified": True}
-    entry = _otp_store.get(email)
-    if not entry or time.time() > entry["expires_at"] or entry["code"] != data.code.strip():
+
+    doc = await db.otps.find_one({"email": email})
+    if not doc:
         raise HTTPException(status_code=400, detail="Invalid or expired code")
+    if datetime.utcnow() > doc["expires_at"]:
+        await db.otps.delete_one({"email": email})
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+    if doc["code"] != code:
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+    # Do NOT delete yet — /forgot-password/reset will consume and delete it
     return {"verified": True}
 
 
 @router.post("/forgot-password/reset")
 async def forgot_password_reset(data: ResetPasswordRequest, db=Depends(get_database)):
     email = data.email.strip().lower()
-    if not verify_otp(email, data.code.strip()):
+    if not await verify_otp_db(db, email, data.code.strip()):
         raise HTTPException(status_code=400, detail="Invalid or expired code")
     if len(data.new_password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")

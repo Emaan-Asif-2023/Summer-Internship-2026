@@ -37,3 +37,5 @@ async def create_indexes(db):
     await db.messages.create_index([("conversation_id", 1), ("created_at", 1)])
     await db.notifications.create_index([("user_id", 1), ("read", 1)])
     await db.connection_requests.create_index([("from_user_id", 1), ("to_user_id", 1)])
+    # TTL index: MongoDB auto-deletes OTP documents after expires_at
+    await db.otps.create_index("expires_at", expireAfterSeconds=0)

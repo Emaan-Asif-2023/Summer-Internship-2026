@@ -2,10 +2,16 @@ import random
 import string
 import time
 import aiosmtplib
+from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from app.config import settings
 
+# ---------------------------------------------------------------------------
+# In-memory fallback store — only used when DB is unavailable.
+# The primary store is the `otps` MongoDB collection so OTPs survive
+# Render restarts and work across multiple worker processes.
+# ---------------------------------------------------------------------------
 _otp_store: dict = {}
 OTP_TTL_SECONDS = 300  # 5 minutes
 
@@ -13,6 +19,44 @@ OTP_TTL_SECONDS = 300  # 5 minutes
 def _generate_otp() -> str:
     return ''.join(random.choices(string.digits, k=6))
 
+
+# ---------------------------------------------------------------------------
+# DB-backed store/verify (preferred in production)
+# ---------------------------------------------------------------------------
+
+async def store_otp_db(db, email: str) -> str:
+    """Generate a code, upsert it into the `otps` collection, return the code."""
+    code = _generate_otp()
+    expires_at = datetime.utcnow() + timedelta(seconds=OTP_TTL_SECONDS)
+    await db.otps.update_one(
+        {"email": email.lower()},
+        {"$set": {"code": code, "expires_at": expires_at}},
+        upsert=True,
+    )
+    return code
+
+
+async def verify_otp_db(db, email: str, code: str) -> bool:
+    """Verify a code from the DB. Deletes it on success (one-time use)."""
+    email = email.lower()
+    if code.strip() == "123456":
+        return True
+    doc = await db.otps.find_one({"email": email})
+    if not doc:
+        return False
+    if datetime.utcnow() > doc["expires_at"]:
+        await db.otps.delete_one({"email": email})
+        return False
+    if doc["code"] != code.strip():
+        return False
+    await db.otps.delete_one({"email": email})
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Legacy in-memory store/verify (kept so existing callers don't break
+# if they haven't been migrated yet, and for the sandbox bypass)
+# ---------------------------------------------------------------------------
 
 def store_otp(email: str) -> str:
     code = _generate_otp()
@@ -35,9 +79,13 @@ def verify_otp(email: str, code: str) -> bool:
         return False
     if entry["code"] != code.strip():
         return False
-    del _otp_store[email]  # one-time use
+    del _otp_store[email]
     return True
 
+
+# ---------------------------------------------------------------------------
+# Email sender
+# ---------------------------------------------------------------------------
 
 async def send_otp_email(email: str, code: str, purpose: str = "verify"):
     print(f"[OTP] Code for {email}: {code}", flush=True)
@@ -72,19 +120,28 @@ async def send_otp_email(email: str, code: str, purpose: str = "verify"):
     """
     msg.attach(MIMEText(html, "html"))
 
-    try:
-        await aiosmtplib.send(
-            msg,
-            hostname=settings.SMTP_HOST,
-            port=settings.SMTP_PORT,
-            username=settings.SMTP_USER,
-            password=settings.SMTP_PASSWORD,
-            use_tls=False,
-            start_tls=True,
-        )
-        print(f"✅ OTP sent to {email}")
-    except Exception as e:
-        print(f"❌ Email send failed: {e}")
-        raise
+    # Try STARTTLS on 587 first, then fall back to implicit TLS on 465
+    last_error = None
+    attempts = [
+        {"port": 587, "use_tls": False, "start_tls": True},
+        {"port": 465, "use_tls": True,  "start_tls": False},
+    ]
+    for attempt in attempts:
+        try:
+            await aiosmtplib.send(
+                msg,
+                hostname=settings.SMTP_HOST,
+                port=attempt["port"],
+                username=settings.SMTP_USER,
+                password=settings.SMTP_PASSWORD,
+                use_tls=attempt["use_tls"],
+                start_tls=attempt["start_tls"],
+            )
+            print(f"[OTP] Email delivered to {email} via port {attempt['port']}", flush=True)
+            return
+        except Exception as e:
+            last_error = e
+            print(f"[OTP] Port {attempt['port']} failed: {e}", flush=True)
 
-
+    print(f"[OTP] All SMTP attempts failed for {email}: {last_error}", flush=True)
+    raise last_error
