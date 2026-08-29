@@ -220,6 +220,7 @@ export default function Chats() {
 
     async function loadHistory() {
       setLoadingMessages(true)
+      prevMessagesLengthRef.current = 0  // reset so next render scrolls instantly
       try {
         const res = await api.get(`/api/messages/${pid}?limit=50`, { headers: authHeaders() })
         setMessages(res.data || [])
@@ -237,30 +238,27 @@ export default function Chats() {
     loadHistory()
   }, [selectedPeer])
 
-  const prevMessagesRef = useRef([])
+  const prevMessagesLengthRef = useRef(0)
 
   useEffect(() => {
-    if (messages.length > 0) {
-      const isSameConvo = prevMessagesRef.current.length > 0 && 
-        (messages[0]?.id || messages[0]?._id) === (prevMessagesRef.current[0]?.id || prevMessagesRef.current[0]?._id)
-      
-      const behavior = isSameConvo ? 'smooth' : 'auto'
-      
-      const performScroll = () => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTo({
-            top: messagesContainerRef.current.scrollHeight,
-            behavior
-          })
-        }
-      }
+    if (!messagesContainerRef.current) return
 
-      performScroll()
-      requestAnimationFrame(performScroll)
-      const t = setTimeout(performScroll, 50)
-      return () => clearTimeout(t)
+    const container = messagesContainerRef.current
+    // Always scroll to bottom instantly when switching conversations,
+    // smoothly when a new message arrives in the current one.
+    const isNewMessage = messages.length > prevMessagesLengthRef.current && prevMessagesLengthRef.current > 0
+    prevMessagesLengthRef.current = messages.length
+
+    const performScroll = () => {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: isNewMessage ? 'smooth' : 'instant',
+      })
     }
-    prevMessagesRef.current = messages
+
+    // Run immediately + after paint (images/layout may still be loading)
+    performScroll()
+    requestAnimationFrame(performScroll)
   }, [messages])
 
   // ---------- Listen on the shared app-wide socket (owned by NotificationContext) ----------
@@ -273,32 +271,45 @@ export default function Chats() {
         const msg = data.message
         const activePeerId = peerIdOf(selectedPeerRef.current)
 
-        if (msg.sender_id === activePeerId) {
-          setMessages(prev => [...prev, msg])
-          api.post(`/api/messages/${msg.sender_id}/read`, {}, { headers: authHeaders() })
-            .then(() => fetchNotifications())
-            .catch(() => {})
+        // Determine the "other person" in this message
+        const otherPersonId = msg.sender_id === currentUser.id
+          ? msg.receiver_id
+          : msg.sender_id
+
+        // Append to current conversation if it involves the active peer
+        if (otherPersonId === activePeerId || msg.sender_id === activePeerId) {
+          setMessages(prev => {
+            // Avoid duplicates (message may already be added optimistically)
+            if (prev.some(m => m.id === msg.id)) return prev
+            return [...prev, msg]
+          })
+          // Mark as read only if the other person sent it
+          if (msg.sender_id === activePeerId) {
+            api.post(`/api/messages/${msg.sender_id}/read`, {}, { headers: authHeaders() })
+              .then(() => fetchNotifications())
+              .catch(() => {})
+          }
         } else {
+          // Message is from someone not currently open — show toast
           toast(`New message`, {
             icon: '💬',
             style: { borderRadius: '10px', background: '#334155', color: '#fff' },
           })
         }
 
+        // Update conversation list sidebar
         setConversations(prev => {
-          const idx = prev.findIndex(c => c.peer.id === msg.sender_id)
+          const idx = prev.findIndex(c => c.peer.id === otherPersonId)
           if (idx === -1) {
-            // Message from someone not yet in the list (shouldn't normally happen
-            // since you must be connected to message) — refresh the full list.
             fetchConversations()
             return prev
           }
           const updated = [...prev]
-          const isActive = msg.sender_id === activePeerId
+          const isActive = otherPersonId === activePeerId
           updated[idx] = {
             ...updated[idx],
             last_message: msg,
-            unread_count: isActive ? 0 : updated[idx].unread_count + 1,
+            unread_count: isActive ? 0 : (msg.sender_id !== currentUser.id ? updated[idx].unread_count + 1 : updated[idx].unread_count),
           }
           updated.sort((a, b) => new Date(b.last_message?.created_at || 0) - new Date(a.last_message?.created_at || 0))
           return updated
