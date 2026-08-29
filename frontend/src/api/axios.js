@@ -18,8 +18,17 @@ const getBaseURL = () => {
 
 const api = axios.create({
   baseURL: getBaseURL(),
-  timeout: 15000,
+  timeout: 60000, // 60s to handle Render free tier cold starts (can take up to 50s)
 })
+
+// Wake up the Render free tier on first load (prevents cold start timeouts)
+if (typeof window !== 'undefined') {
+  const base = getBaseURL()
+  const hostname = window.location.hostname
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    fetch(`${base}/`).catch(() => {})
+  }
+}
 
 // Attach JWT from localStorage on every request
 api.interceptors.request.use((config) => {
