@@ -113,8 +113,8 @@ export function NotificationProvider({ children }) {
         console.log('[WS] closed — code:', e.code, 'reason:', e.reason)
         clearInterval(pingInterval)
         if (!dead) {
-          console.log('[WS] reconnecting in 3s...')
-          reconnectTimeout = setTimeout(connect, 3000)
+          console.log('[WS] reconnecting immediately...')
+          reconnectTimeout = setTimeout(connect, 0)
         }
       }
     }

@@ -275,6 +275,26 @@ export default function Chats() {
     setTimeout(doScroll, 300)
   }, [loadingMessages])
 
+  // ---------- Polling fallback: refresh messages every 10s in case WS drops ----------
+  useEffect(() => {
+    if (!selectedPeer) return
+    const pid = peerIdOf(selectedPeer)
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.get(`/api/messages/${pid}?limit=50`, { headers: authHeaders() })
+        const fresh = res.data || []
+        setMessages(prev => {
+          // Only update if there are new messages
+          if (fresh.length > prev.length) return fresh
+          return prev
+        })
+      } catch { /* silent */ }
+    }, 10000)
+
+    return () => clearInterval(interval)
+  }, [selectedPeer])
+
   // ---------- Listen on the shared app-wide socket (owned by NotificationContext) ----------
 
   useEffect(() => {
