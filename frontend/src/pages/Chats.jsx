@@ -161,6 +161,7 @@ export default function Chats() {
   const selectedPeerRef = useRef(null)
   const imageInputRef = useRef(null)
   const fileInputRef = useRef(null)
+  const prevMessagesLengthRef = useRef(0)
 
   useEffect(() => {
     selectedPeerRef.current = selectedPeer
@@ -238,25 +239,20 @@ export default function Chats() {
     loadHistory()
   }, [selectedPeer])
 
-  const prevMessagesLengthRef = useRef(0)
-
   useEffect(() => {
     if (!messagesContainerRef.current) return
 
     const container = messagesContainerRef.current
-    // Always scroll to bottom instantly when switching conversations,
-    // smoothly when a new message arrives in the current one.
     const isNewMessage = messages.length > prevMessagesLengthRef.current && prevMessagesLengthRef.current > 0
     prevMessagesLengthRef.current = messages.length
 
     const performScroll = () => {
       container.scrollTo({
         top: container.scrollHeight,
-        behavior: isNewMessage ? 'smooth' : 'instant',
+        behavior: isNewMessage ? 'smooth' : 'auto',
       })
     }
 
-    // Run immediately + after paint (images/layout may still be loading)
     performScroll()
     requestAnimationFrame(performScroll)
   }, [messages])

@@ -50,47 +50,77 @@ export function NotificationProvider({ children }) {
   }, [user, fetchNotifications])
 
   // One socket for the whole app, opened once per login session.
+  // Keeps itself alive with a 30s ping and reconnects automatically if dropped.
   useEffect(() => {
     if (!user) return
     const token = localStorage.getItem('ts_token')
     if (!token) return
 
-    const ws = new WebSocket(`${WS_URL}?token=${token}`)
-    wsRef.current = ws
+    let ws = null
+    let pingInterval = null
+    let reconnectTimeout = null
+    let dead = false  // set to true on cleanup so we stop reconnecting
 
-    ws.onmessage = (event) => {
-      let data
-      try { data = JSON.parse(event.data) } catch { return }
+    const connect = () => {
+      if (dead) return
+      ws = new WebSocket(`${WS_URL}?token=${token}`)
+      wsRef.current = ws
 
-      if (data.event === 'notification') {
-        const n = data.notification
-        setNotifications(prev => {
-          const idx = prev.findIndex(p => p.id === n.id)
-          if (idx !== -1) {
-            const updated = [...prev]
-            updated[idx] = n
-            return updated
+      ws.onopen = () => {
+        // Send a ping every 30s to prevent Render from closing the idle connection
+        pingInterval = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send('ping')
           }
-          return [n, ...prev]
-        })
-        setUnreadCount(prev => (n.read ? prev : prev + 1))
-        if (!n.read) {
-          toast(n.title, {
-            icon: '🔔',
-            style: { borderRadius: '10px', background: '#334155', color: '#fff' },
-          })
-        }
+        }, 30000)
       }
 
-      // Fan every event out to subscribers (Chats.jsx listens for
-      // 'new_message' / 'read_receipt' this way instead of opening its own socket)
-      listenersRef.current.forEach(fn => fn(data))
+      ws.onmessage = (event) => {
+        if (event.data === 'pong') return  // ignore server pong if any
+        let data
+        try { data = JSON.parse(event.data) } catch { return }
+
+        if (data.event === 'notification') {
+          const n = data.notification
+          setNotifications(prev => {
+            const idx = prev.findIndex(p => p.id === n.id)
+            if (idx !== -1) {
+              const updated = [...prev]
+              updated[idx] = n
+              return updated
+            }
+            return [n, ...prev]
+          })
+          setUnreadCount(prev => (n.read ? prev : prev + 1))
+          if (!n.read) {
+            toast(n.title, {
+              icon: '🔔',
+              style: { borderRadius: '10px', background: '#334155', color: '#fff' },
+            })
+          }
+        }
+
+        listenersRef.current.forEach(fn => fn(data))
+      }
+
+      ws.onerror = () => console.error('Notification WebSocket error')
+
+      ws.onclose = () => {
+        clearInterval(pingInterval)
+        if (!dead) {
+          // Reconnect after 3 seconds
+          reconnectTimeout = setTimeout(connect, 3000)
+        }
+      }
     }
 
-    ws.onerror = () => console.error('Notification WebSocket error')
+    connect()
 
     return () => {
-      ws.close()
+      dead = true
+      clearInterval(pingInterval)
+      clearTimeout(reconnectTimeout)
+      if (ws) ws.close()
       wsRef.current = null
     }
   }, [user])
