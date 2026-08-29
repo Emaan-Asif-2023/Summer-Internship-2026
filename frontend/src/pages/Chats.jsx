@@ -244,14 +244,15 @@ export default function Chats() {
     const isNewMessage = messages.length > prevMessagesLengthRef.current && prevMessagesLengthRef.current > 0
     prevMessagesLengthRef.current = messages.length
 
-    // Small delay to let the DOM paint before scrolling
-    const t = setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({
-        behavior: isNewMessage ? 'smooth' : 'auto',
-        block: 'end',
-      })
-    }, 30)
-    return () => clearTimeout(t)
+    const scrollToBottom = (behavior = 'auto') => {
+      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' })
+    }
+
+    // Fire immediately, then again after layout settles
+    scrollToBottom(isNewMessage ? 'smooth' : 'auto')
+    const t1 = setTimeout(() => scrollToBottom(isNewMessage ? 'smooth' : 'auto'), 100)
+    const t2 = setTimeout(() => scrollToBottom('auto'), 400)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [messages])
 
   // ---------- Listen on the shared app-wide socket (owned by NotificationContext) ----------
