@@ -157,6 +157,7 @@ export default function Chats() {
   const [showMobileChat, setShowMobileChat] = useState(false)
 
   const messagesEndRef = useRef(null)
+  const messagesContainerRef = useRef(null)
   const selectedPeerRef = useRef(null)
   const imageInputRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -239,11 +240,26 @@ export default function Chats() {
   const prevMessagesRef = useRef([])
 
   useEffect(() => {
-    const isSameConvo = messages.length > 0 && prevMessagesRef.current.length > 0 && 
-      (messages[0]?.id || messages[0]?._id) === (prevMessagesRef.current[0]?.id || prevMessagesRef.current[0]?._id)
-    
-    const behavior = isSameConvo ? 'smooth' : 'auto'
-    messagesEndRef.current?.scrollIntoView({ behavior })
+    if (messages.length > 0) {
+      const isSameConvo = prevMessagesRef.current.length > 0 && 
+        (messages[0]?.id || messages[0]?._id) === (prevMessagesRef.current[0]?.id || prevMessagesRef.current[0]?._id)
+      
+      const behavior = isSameConvo ? 'smooth' : 'auto'
+      
+      const performScroll = () => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTo({
+            top: messagesContainerRef.current.scrollHeight,
+            behavior
+          })
+        }
+      }
+
+      performScroll()
+      requestAnimationFrame(performScroll)
+      const t = setTimeout(performScroll, 50)
+      return () => clearTimeout(t)
+    }
     prevMessagesRef.current = messages
   }, [messages])
 
@@ -533,7 +549,7 @@ export default function Chats() {
                 </Link>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/30">
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/30">
                 {loadingMessages ? (
                   <div className="flex items-center justify-center h-full text-xs text-slate-400">Loading conversation...</div>
                 ) : messages.length === 0 ? (
