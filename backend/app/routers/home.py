@@ -495,9 +495,8 @@ async def get_home_stats(
 
     try:
         stats["messages"] = await db.messages.count_documents({
+            "read": False,
             "$or": [
-                {"sender_id": uid},
-                {"sender_id": str(uid)},
                 {"receiver_id": uid},
                 {"receiver_id": str(uid)}
             ]

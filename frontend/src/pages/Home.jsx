@@ -72,7 +72,7 @@ const STATUS_CONFIG = {
 const STAT_CARDS = [
   { key: 'projects_joined', label: 'Projects Joined', icon: FolderSearch, color: 'bg-indigo-50 text-indigo-600', to: '/projects' },
   { key: 'teammates', label: 'Connections', icon: Users, color: 'bg-emerald-50 text-emerald-600', to: '/notifications?tab=connections' },
-  { key: 'messages', label: 'Messages', icon: Mail, color: 'bg-amber-50 text-amber-600', to: '/chats' },
+  { key: 'messages', label: 'Unread Messages', icon: Mail, color: 'bg-amber-50 text-amber-600', to: '/chats' },
 ]
 
 // ── Helpers ────────────────────────────────────────────────
