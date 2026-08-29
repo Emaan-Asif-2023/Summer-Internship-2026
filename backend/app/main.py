@@ -42,7 +42,7 @@ app.add_middleware(
         "https://teamsync-app.netlify.app",
         "https://teamsync.netlify.app",
     ],
-    allow_origin_regex=r"https://.*\.netlify\.app",
+    allow_origin_regex=r"https://.+\.(netlify\.app|vercel\.app)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
