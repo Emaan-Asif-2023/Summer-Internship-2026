@@ -26,9 +26,9 @@ class VerifyOtpRequest(BaseModel):
 async def send_otp(data: SendOtpRequest, db=Depends(get_database)):
     email = data.email.strip().lower()
 
-    # Validate that the email domain actually exists (DNS/MX check)
+    # Validate that the email domain is syntactically valid
     try:
-        validate_email(email, check_deliverability=True)
+        validate_email(email, check_deliverability=False)
     except EmailNotValidError as e:
         raise HTTPException(status_code=400, detail=f"Invalid or undeliverable email address: {str(e)}")
    
