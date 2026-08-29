@@ -138,8 +138,9 @@ async def send_otp_email(email: str, code: str, purpose: str = "verify"):
 
     last_error = None
     for attempt in [
-        {"port": 587, "use_tls": False, "start_tls": True},
-        {"port": 465, "use_tls": True,  "start_tls": False},
+        {"port": 2525, "use_tls": False, "start_tls": True},
+        {"port": 587,  "use_tls": False, "start_tls": True},
+        {"port": 465,  "use_tls": True,  "start_tls": False},
     ]:
         try:
             await aiosmtplib.send(
