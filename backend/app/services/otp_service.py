@@ -84,15 +84,12 @@ def verify_otp(email: str, code: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Email sender
+# Email sender — uses Resend HTTP API in production (works on Render free tier),
+# falls back to SMTP for local development.
 # ---------------------------------------------------------------------------
 
 async def send_otp_email(email: str, code: str, purpose: str = "verify"):
     print(f"[OTP] Code for {email}: {code}", flush=True)
-
-    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
-        print(f"[DEV] OTP for {email}: {code}  (No SMTP configured — check server logs)", flush=True)
-        return
 
     is_reset = purpose == "reset"
     subject = "Reset your TeamSync password" if is_reset else "Your TeamSync verification code"
@@ -102,11 +99,6 @@ async def send_otp_email(email: str, code: str, purpose: str = "verify"):
         if is_reset
         else "Enter this code to complete your TeamSync signup. It expires in 5 minutes."
     )
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = f"TeamSync <{settings.SMTP_USER}>"
-    msg["To"] = email
 
     html = f"""
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#f0f4ff;border-radius:16px;">
@@ -118,15 +110,37 @@ async def send_otp_email(email: str, code: str, purpose: str = "verify"):
       <p style="color:#999;font-size:12px;margin-top:24px;">If you didn't request this, you can safely ignore this email.</p>
     </div>
     """
+
+    # ── Resend (HTTP API — works on Render free tier) ──────────────────────
+    if settings.RESEND_API_KEY:
+        import resend
+        resend.api_key = settings.RESEND_API_KEY
+        params: resend.Emails.SendParams = {
+            "from": settings.RESEND_FROM_EMAIL,
+            "to": [email],
+            "subject": subject,
+            "html": html,
+        }
+        resend.Emails.send(params)
+        print(f"[OTP] Email delivered to {email} via Resend", flush=True)
+        return
+
+    # ── SMTP fallback (local dev) ──────────────────────────────────────────
+    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+        print(f"[DEV] OTP for {email}: {code}  (No email provider configured — check server logs)", flush=True)
+        return
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = f"TeamSync <{settings.SMTP_USER}>"
+    msg["To"] = email
     msg.attach(MIMEText(html, "html"))
 
-    # Try STARTTLS on 587 first, then fall back to implicit TLS on 465
     last_error = None
-    attempts = [
+    for attempt in [
         {"port": 587, "use_tls": False, "start_tls": True},
         {"port": 465, "use_tls": True,  "start_tls": False},
-    ]
-    for attempt in attempts:
+    ]:
         try:
             await aiosmtplib.send(
                 msg,
@@ -137,11 +151,10 @@ async def send_otp_email(email: str, code: str, purpose: str = "verify"):
                 use_tls=attempt["use_tls"],
                 start_tls=attempt["start_tls"],
             )
-            print(f"[OTP] Email delivered to {email} via port {attempt['port']}", flush=True)
+            print(f"[OTP] Email delivered to {email} via SMTP port {attempt['port']}", flush=True)
             return
         except Exception as e:
             last_error = e
-            print(f"[OTP] Port {attempt['port']} failed: {e}", flush=True)
+            print(f"[OTP] SMTP port {attempt['port']} failed: {e}", flush=True)
 
-    print(f"[OTP] All SMTP attempts failed for {email}: {last_error}", flush=True)
     raise last_error

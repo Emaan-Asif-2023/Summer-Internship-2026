@@ -38,14 +38,19 @@ async def send_otp(data: SendOtpRequest, db=Depends(get_database)):
         raise HTTPException(status_code=400, detail="This email is already registered")
 
     # Store OTP in DB so it survives server restarts
-    code = await store_otp_db(db, email)
+    try:
+        code = await store_otp_db(db, email)
+    except Exception as e:
+        print(f"[OTP] DB store failed: {e}. Falling back to in-memory store.", flush=True)
+        from app.services.otp_service import store_otp as store_otp_mem
+        code = store_otp_mem(email)
+
     try:
         await send_otp_email(email, code)
     except Exception as e:
-        print(f"[OTP] Email send failed: {e}. Code is stored in DB — user must check logs or retry.", flush=True)
-        # Code is already persisted in MongoDB; the user just won't receive the email.
-        # Return a generic success so they can try the resend button.
-        return {"message": "Verification code sent"}
+        print(f"[OTP] Email send failed: {e}. Code is stored — user can retry.", flush=True)
+
+    # Always return success — code is stored either in DB or memory
     return {"message": "Verification code sent"}
 
 
@@ -63,11 +68,18 @@ async def forgot_password_send_otp(data: SendOtpRequest, db=Depends(get_database
     user = await db.users.find_one({"email": email})
     if not user:
         return {"message": "If that email is registered, a reset code has been sent."}
-    code = await store_otp_db(db, email)
+    try:
+        code = await store_otp_db(db, email)
+    except Exception as e:
+        print(f"[OTP] DB store failed: {e}. Falling back to in-memory store.", flush=True)
+        from app.services.otp_service import store_otp as store_otp_mem
+        code = store_otp_mem(email)
+
     try:
         await send_otp_email(email, code, purpose="reset")
     except Exception as e:
-        print(f"[OTP] Password reset email send failed: {e}. Code stored in DB.", flush=True)
+        print(f"[OTP] Password reset email send failed: {e}. Code stored.", flush=True)
+
     return {"message": "If that email is registered, a reset code has been sent"}
 
 
