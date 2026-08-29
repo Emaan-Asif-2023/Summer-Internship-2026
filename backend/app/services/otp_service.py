@@ -132,7 +132,8 @@ async def send_otp_email(email: str, code: str, purpose: str = "verify"):
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = f"TeamSync <{settings.SMTP_USER}>"
+    from_address = settings.SMTP_FROM or settings.SMTP_USER
+    msg["From"] = f"TeamSync <{from_address}>"
     msg["To"] = email
     msg.attach(MIMEText(html, "html"))
 
