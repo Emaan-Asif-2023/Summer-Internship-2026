@@ -236,8 +236,15 @@ export default function Chats() {
     loadHistory()
   }, [selectedPeer])
 
+  const prevMessagesRef = useRef([])
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const isSameConvo = messages.length > 0 && prevMessagesRef.current.length > 0 && 
+      (messages[0]?.id || messages[0]?._id) === (prevMessagesRef.current[0]?.id || prevMessagesRef.current[0]?._id)
+    
+    const behavior = isSameConvo ? 'smooth' : 'auto'
+    messagesEndRef.current?.scrollIntoView({ behavior })
+    prevMessagesRef.current = messages
   }, [messages])
 
   // ---------- Listen on the shared app-wide socket (owned by NotificationContext) ----------
@@ -465,7 +472,18 @@ export default function Chats() {
                         )}
                       </div>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-[10px] text-slate-400 truncate">{preview}</p>
+                        <div className="flex items-center gap-1 min-w-0 flex-1">
+                          {lastMsg && lastMsg.sender_id === currentUser?.id && (
+                            <span className="shrink-0">
+                              {lastMsg.read ? (
+                                <CheckCheck size={12} className="text-indigo-500" />
+                              ) : (
+                                <Check size={12} className="text-slate-400" />
+                              )}
+                            </span>
+                          )}
+                          <p className="text-[10px] text-slate-400 truncate">{preview}</p>
+                        </div>
                         {convo.unread_count > 0 && (
                           <span className="shrink-0 min-w-[16px] h-4 px-1 rounded-full bg-indigo-600 text-white text-[9px] font-bold flex items-center justify-center">
                             {convo.unread_count}
