@@ -321,20 +321,22 @@ export default function Chats() {
         // Append to current conversation if it involves the active peer
         if (otherPersonId === activePeerId || msg.sender_id === activePeerId) {
           setMessages(prev => {
-            // Avoid duplicates (message may already be added optimistically)
             if (prev.some(m => m.id === msg.id)) return prev
             return [...prev, msg]
           })
-          // Mark as read immediately since the conversation is open
-          if (msg.sender_id === activePeerId) {
-            api.post(`/api/messages/${msg.sender_id}/read`, {}, { headers: authHeaders() })
-              .then(() => fetchNotifications())
-              .catch(() => {})
-            // Clear unread badge in sidebar
-            setConversations(prev => prev.map(c =>
-              c.peer.id === activePeerId ? { ...c, unread_count: 0 } : c
-            ))
-          }
+          // Chat is open — mark as read immediately and clear unread badge
+          api.post(`/api/messages/${activePeerId}/read`, {}, { headers: authHeaders() })
+            .then(() => {
+              fetchNotifications()
+              // Optimistically mark all our sent messages as read too
+              setMessages(prev => prev.map(m =>
+                m.sender_id === currentUser.id ? { ...m, read: true } : m
+              ))
+            })
+            .catch(() => {})
+          setConversations(prev => prev.map(c =>
+            c.peer.id === activePeerId ? { ...c, unread_count: 0 } : c
+          ))
         } else {
           // Message is from someone not currently open — show toast
           toast(`New message`, {
@@ -365,8 +367,15 @@ export default function Chats() {
       if (data.event === 'read_receipt') {
         const activePeerId = peerIdOf(selectedPeerRef.current)
         if (data.by === activePeerId) {
+          // Peer read our messages — show blue ticks
           setMessages(prev => prev.map(m =>
             m.sender_id === currentUser.id ? { ...m, read: true, read_at: data.read_at } : m
+          ))
+          // Also update last_message in sidebar to show blue tick
+          setConversations(prev => prev.map(c =>
+            c.peer.id === activePeerId && c.last_message
+              ? { ...c, last_message: { ...c.last_message, read: true } }
+              : c
           ))
         }
       }
