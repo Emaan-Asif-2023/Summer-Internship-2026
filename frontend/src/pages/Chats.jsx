@@ -459,15 +459,7 @@ export default function Chats() {
           setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg])
           // Mark as read immediately since chat is open
           api.post(`/api/messages/${activePeerId}/read`, {}, { headers: authHeaders() })
-            .then(() => {
-              fetchNotifications()
-              setMessages(prev => prev.map(m =>
-                String(m.sender_id) !== myId ? m : { ...m, read: true }
-              ))
-            }).catch(() => {})
-          setConversations(prev => prev.map(c =>
-            String(c.peer.id) === String(activePeerId) ? { ...c, unread_count: 0 } : c
-          ))
+            .then(() => fetchNotifications()).catch(() => {})
         } else {
           // Toast — use ref so it's never stale
           const senderConvo = conversationsRef.current.find(c => String(c.peer.id) === otherPersonId)
@@ -479,18 +471,14 @@ export default function Chats() {
         // Always update sidebar last_message and unread count
         setConversations(prev => {
           const idx = prev.findIndex(c => String(c.peer.id) === otherPersonId)
-          if (idx === -1) return prev  // not in list yet — polling will catch it
+          if (idx === -1) return prev
           const updated = [...prev]
           const current = updated[idx]
           const isActive = activePeerId && String(activePeerId) === otherPersonId
           updated[idx] = {
             ...current,
             last_message: msg,
-            unread_count: isActive
-              ? 0
-              : senderId !== myId
-                ? current.unread_count + 1
-                : current.unread_count,
+            unread_count: isActive ? 0 : (senderId !== myId ? current.unread_count + 1 : current.unread_count),
           }
           updated.sort((a, b) =>
             new Date(b.last_message?.created_at || 0) - new Date(a.last_message?.created_at || 0)
@@ -501,14 +489,15 @@ export default function Chats() {
 
       // ── Read receipt (receiver read our messages) ──
       if (data.event === 'read_receipt') {
-        // data.by = the user who read (receiver), mark all our messages to them as read
+        // data.by = ID of the person who read our messages
+        // Update ticks in the currently open chat if it's that person
         setMessages(prev => prev.map(m =>
-          String(m.sender_id) === myId ? { ...m, read: true, delivered: true, read_at: data.read_at } : m
+          String(m.sender_id) === myId ? { ...m, read: true } : m
         ))
-        // Update sidebar tick for any conversation where this user is the peer
+        // Always update sidebar tick regardless of which chat is open
         setConversations(prev => prev.map(c =>
           String(c.peer.id) === String(data.by) && c.last_message
-            ? { ...c, last_message: { ...c.last_message, read: true, delivered: true } }
+            ? { ...c, last_message: { ...c.last_message, read: true } }
             : c
         ))
       }
