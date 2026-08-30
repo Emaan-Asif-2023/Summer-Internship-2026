@@ -476,6 +476,7 @@ export default function Chats() {
         // Always update sidebar last_message and unread count
         setConversations(prev => {
           const idx = prev.findIndex(c => String(c.peer.id) === otherPersonId)
+          console.log('[SIDEBAR] new_message from', otherPersonId, '— found at idx', idx, '— convos:', prev.map(c => c.peer.id))
           if (idx === -1) { fetchConversations(); return prev }
           const updated = [...prev]
           const current = updated[idx]
