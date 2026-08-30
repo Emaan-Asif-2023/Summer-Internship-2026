@@ -451,8 +451,9 @@ export default function Chats() {
         const receiverId = String(msg.receiver_id)
         const otherPersonId = senderId === myId ? receiverId : senderId
 
-        const isForActiveChat = activePeerId &&
-          (otherPersonId === String(activePeerId) || senderId === String(activePeerId))
+        console.log('[WS] new_message | activePeerId:', activePeerId, '| otherPersonId:', otherPersonId, '| senderId:', senderId, '| myId:', myId)
+
+        const isForActiveChat = activePeerId &&          (otherPersonId === String(activePeerId) || senderId === String(activePeerId))
 
         if (isForActiveChat) {
           // Append message if not already there (dedup)
@@ -463,9 +464,25 @@ export default function Chats() {
         } else {
           // Toast — use ref so it's never stale
           const senderConvo = conversationsRef.current.find(c => String(c.peer.id) === otherPersonId)
-          toast(senderConvo ? `New message from ${senderConvo.peer.name}` : 'New message', {
-            icon: '💬', style: { borderRadius: '10px', background: '#334155', color: '#fff' }
-          })
+          const senderName = senderConvo?.peer?.name || 'Someone'
+          toast(
+            (t) => (
+              <button
+                onClick={() => {
+                  if (senderConvo) setSelectedPeer(senderConvo.peer)
+                  toast.dismiss(t.id)
+                }}
+                className="flex items-center gap-2 text-left"
+              >
+                <span>💬</span>
+                <div>
+                  <p className="text-xs font-semibold">{senderName}</p>
+                  <p className="text-[10px] opacity-80 truncate max-w-[160px]">{msg.text || '� Media'}</p>
+                </div>
+              </button>
+            ),
+            { style: { borderRadius: '10px', background: '#334155', color: '#fff' }, duration: 4000 }
+          )
         }
 
         // Always update sidebar last_message and unread count
