@@ -236,6 +236,12 @@ async def send_text_message(
             "event": "delivery_receipt",
             "message_id": serialized["id"],
         })
+
+    await upsert_message_notification(
+        db, recipient_id=pid, sender_id=user_id,
+        sender_name=current_user.get("name", "Someone"),
+        preview=text[:120],
+    )
     return serialized
 
 

@@ -314,8 +314,10 @@ export default function Chats() {
   const fileInputRef = useRef(null)
   const prevMessagesLengthRef = useRef(0)
   const inputRef = useRef(null)
+  const conversationsRef = useRef([])  // always-current ref to avoid stale closures in WS handler
 
   useEffect(() => { selectedPeerRef.current = selectedPeer }, [selectedPeer])
+  useEffect(() => { conversationsRef.current = conversations }, [conversations])
 
   const peerIdOf = (p) => p?.id || p?._id
 
@@ -436,74 +438,84 @@ export default function Chats() {
   useEffect(() => {
     if (!currentUser) return
     const unsubscribe = subscribe((data) => {
+      const myId = String(currentUser.id)
+      const activePeerId = peerIdOf(selectedPeerRef.current)
+
+      // ── New message ──
       if (data.event === 'new_message') {
         const msg = data.message
-        const activePeerId = peerIdOf(selectedPeerRef.current)
-        const myId = String(currentUser.id)
         const senderId = String(msg.sender_id)
         const receiverId = String(msg.receiver_id)
         const otherPersonId = senderId === myId ? receiverId : senderId
 
-        const isForActiveChat = activePeerId && (
-          otherPersonId === String(activePeerId) ||
-          senderId === String(activePeerId)
-        )
+        const isForActiveChat = activePeerId &&
+          (otherPersonId === String(activePeerId) || senderId === String(activePeerId))
 
         if (isForActiveChat) {
-          setMessages(prev => {
-            if (prev.some(m => m.id === msg.id)) return prev
-            return [...prev, msg]
-          })
+          // Append message if not already there (dedup)
+          setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg])
+          // Mark as read immediately since chat is open
           api.post(`/api/messages/${activePeerId}/read`, {}, { headers: authHeaders() })
             .then(() => {
               fetchNotifications()
-              setMessages(prev => prev.map(m => m.sender_id === currentUser.id ? { ...m, read: true } : m))
+              setMessages(prev => prev.map(m =>
+                String(m.sender_id) !== myId ? m : { ...m, read: true }
+              ))
             }).catch(() => {})
           setConversations(prev => prev.map(c =>
             String(c.peer.id) === String(activePeerId) ? { ...c, unread_count: 0 } : c
           ))
         } else {
-          // Show toast with sender name if we can find them
-          const senderConvo = conversations.find(c => String(c.peer.id) === otherPersonId)
+          // Toast — use ref so it's never stale
+          const senderConvo = conversationsRef.current.find(c => String(c.peer.id) === otherPersonId)
           toast(senderConvo ? `New message from ${senderConvo.peer.name}` : 'New message', {
             icon: '💬', style: { borderRadius: '10px', background: '#334155', color: '#fff' }
           })
         }
 
-        // Always update sidebar last_message
+        // Always update sidebar last_message and unread count
         setConversations(prev => {
           const idx = prev.findIndex(c => String(c.peer.id) === otherPersonId)
           if (idx === -1) { fetchConversations(); return prev }
           const updated = [...prev]
-          const isActive = String(activePeerId) === otherPersonId
           const current = updated[idx]
+          const isActive = activePeerId && String(activePeerId) === otherPersonId
           const incomingTime = new Date(msg.created_at).getTime()
-          const currentTime = current.last_message ? new Date(current.last_message.created_at).getTime() : 0
+          const currentTime = current.last_message
+            ? new Date(current.last_message.created_at).getTime()
+            : 0
           updated[idx] = {
             ...current,
             last_message: incomingTime >= currentTime ? msg : current.last_message,
-            unread_count: isActive ? 0 : (senderId !== myId ? current.unread_count + 1 : current.unread_count),
+            unread_count: isActive
+              ? 0
+              : senderId !== myId
+                ? current.unread_count + 1
+                : current.unread_count,
           }
-          updated.sort((a, b) => new Date(b.last_message?.created_at || 0) - new Date(a.last_message?.created_at || 0))
+          updated.sort((a, b) =>
+            new Date(b.last_message?.created_at || 0) - new Date(a.last_message?.created_at || 0)
+          )
           return updated
         })
       }
 
+      // ── Read receipt (receiver read our messages) ──
       if (data.event === 'read_receipt') {
-        const activePeerId = peerIdOf(selectedPeerRef.current)
-        if (String(data.by) === String(activePeerId)) {
-          setMessages(prev => prev.map(m =>
-            String(m.sender_id) === String(currentUser.id) ? { ...m, read: true, read_at: data.read_at } : m
-          ))
-          setConversations(prev => prev.map(c =>
-            String(c.peer.id) === String(activePeerId) && c.last_message
-              ? { ...c, last_message: { ...c.last_message, read: true } } : c
-          ))
-        }
+        // data.by = the user who read (receiver), mark all our messages to them as read
+        setMessages(prev => prev.map(m =>
+          String(m.sender_id) === myId ? { ...m, read: true, delivered: true, read_at: data.read_at } : m
+        ))
+        // Update sidebar tick for any conversation where this user is the peer
+        setConversations(prev => prev.map(c =>
+          String(c.peer.id) === String(data.by) && c.last_message
+            ? { ...c, last_message: { ...c.last_message, read: true, delivered: true } }
+            : c
+        ))
       }
 
+      // ── Delivery receipt (single message) ──
       if (data.event === 'delivery_receipt') {
-        // Single message delivered to receiver's device
         setMessages(prev => prev.map(m =>
           m.id === data.message_id ? { ...m, delivered: true } : m
         ))
@@ -514,8 +526,8 @@ export default function Chats() {
         ))
       }
 
+      // ── Bulk delivery receipt (receiver came online) ──
       if (data.event === 'bulk_delivery_receipt') {
-        // Multiple messages delivered when receiver came online
         const ids = new Set(data.message_ids)
         setMessages(prev => prev.map(m => ids.has(m.id) ? { ...m, delivered: true } : m))
         setConversations(prev => prev.map(c =>
@@ -525,13 +537,14 @@ export default function Chats() {
         ))
       }
 
+      // ── Message deleted or reacted ──
       if (data.event === 'message_deleted' || data.event === 'message_reacted') {
         const updated = data.message
         setMessages(prev => prev.map(m => m.id === updated.id ? updated : m))
       }
     })
     return () => unsubscribe()
-  }, [currentUser, subscribe])
+  }, [currentUser, subscribe])  // no conversations dependency — using ref instead
 
   // ---------- Send text ----------
   const handleSend = async (e) => {
