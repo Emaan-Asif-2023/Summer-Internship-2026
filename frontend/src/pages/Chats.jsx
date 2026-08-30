@@ -454,15 +454,20 @@ export default function Chats() {
           toast('New message', { icon: '💬', style: { borderRadius: '10px', background: '#334155', color: '#fff' } })
         }
 
+        // Update sidebar — always set last_message to the incoming msg
         setConversations(prev => {
           const idx = prev.findIndex(c => c.peer.id === otherPersonId)
           if (idx === -1) { fetchConversations(); return prev }
           const updated = [...prev]
           const isActive = otherPersonId === activePeerId
+          const current = updated[idx]
+          // Only update last_message if the incoming msg is newer than what's shown
+          const incomingTime = new Date(msg.created_at).getTime()
+          const currentTime = current.last_message ? new Date(current.last_message.created_at).getTime() : 0
           updated[idx] = {
-            ...updated[idx],
-            last_message: msg,
-            unread_count: isActive ? 0 : (msg.sender_id !== currentUser.id ? updated[idx].unread_count + 1 : updated[idx].unread_count),
+            ...current,
+            last_message: incomingTime >= currentTime ? msg : current.last_message,
+            unread_count: isActive ? 0 : (msg.sender_id !== currentUser.id ? current.unread_count + 1 : current.unread_count),
           }
           updated.sort((a, b) => new Date(b.last_message?.created_at || 0) - new Date(a.last_message?.created_at || 0))
           return updated
@@ -509,12 +514,12 @@ export default function Chats() {
       type: 'text',
       text,
       read: false,
-      created_at: new Date().toISOString(),
+      created_at: new Date(Date.now() - 1).toISOString(), // 1ms in past so real msg always wins
       reply_to: replyToSnapshot,
       reactions: {},
       deleted_for: [],
       deleted_for_everyone: false,
-      _sending: true, // flag to show clock icon
+      _sending: true,
     }
     setMessages(prev => [...prev, optimisticMsg])
     // Update sidebar immediately with latest message
