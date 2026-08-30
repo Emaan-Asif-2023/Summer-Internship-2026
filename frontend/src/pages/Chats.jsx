@@ -437,9 +437,17 @@ export default function Chats() {
       if (data.event === 'new_message') {
         const msg = data.message
         const activePeerId = peerIdOf(selectedPeerRef.current)
-        const otherPersonId = msg.sender_id === currentUser.id ? msg.receiver_id : msg.sender_id
+        const myId = String(currentUser.id)
+        const senderId = String(msg.sender_id)
+        const receiverId = String(msg.receiver_id)
+        const otherPersonId = senderId === myId ? receiverId : senderId
 
-        if (otherPersonId === activePeerId || msg.sender_id === activePeerId) {
+        const isForActiveChat = activePeerId && (
+          otherPersonId === String(activePeerId) ||
+          senderId === String(activePeerId)
+        )
+
+        if (isForActiveChat) {
           setMessages(prev => {
             if (prev.some(m => m.id === msg.id)) return prev
             return [...prev, msg]
@@ -449,25 +457,26 @@ export default function Chats() {
               fetchNotifications()
               setMessages(prev => prev.map(m => m.sender_id === currentUser.id ? { ...m, read: true } : m))
             }).catch(() => {})
-          setConversations(prev => prev.map(c => c.peer.id === activePeerId ? { ...c, unread_count: 0 } : c))
+          setConversations(prev => prev.map(c =>
+            String(c.peer.id) === String(activePeerId) ? { ...c, unread_count: 0 } : c
+          ))
         } else {
           toast('New message', { icon: '💬', style: { borderRadius: '10px', background: '#334155', color: '#fff' } })
         }
 
-        // Update sidebar — always set last_message to the incoming msg
+        // Always update sidebar last_message
         setConversations(prev => {
-          const idx = prev.findIndex(c => c.peer.id === otherPersonId)
+          const idx = prev.findIndex(c => String(c.peer.id) === otherPersonId)
           if (idx === -1) { fetchConversations(); return prev }
           const updated = [...prev]
-          const isActive = otherPersonId === activePeerId
+          const isActive = String(activePeerId) === otherPersonId
           const current = updated[idx]
-          // Only update last_message if the incoming msg is newer than what's shown
           const incomingTime = new Date(msg.created_at).getTime()
           const currentTime = current.last_message ? new Date(current.last_message.created_at).getTime() : 0
           updated[idx] = {
             ...current,
             last_message: incomingTime >= currentTime ? msg : current.last_message,
-            unread_count: isActive ? 0 : (msg.sender_id !== currentUser.id ? current.unread_count + 1 : current.unread_count),
+            unread_count: isActive ? 0 : (senderId !== myId ? current.unread_count + 1 : current.unread_count),
           }
           updated.sort((a, b) => new Date(b.last_message?.created_at || 0) - new Date(a.last_message?.created_at || 0))
           return updated
@@ -476,10 +485,12 @@ export default function Chats() {
 
       if (data.event === 'read_receipt') {
         const activePeerId = peerIdOf(selectedPeerRef.current)
-        if (data.by === activePeerId) {
-          setMessages(prev => prev.map(m => m.sender_id === currentUser.id ? { ...m, read: true, read_at: data.read_at } : m))
+        if (String(data.by) === String(activePeerId)) {
+          setMessages(prev => prev.map(m =>
+            String(m.sender_id) === String(currentUser.id) ? { ...m, read: true, read_at: data.read_at } : m
+          ))
           setConversations(prev => prev.map(c =>
-            c.peer.id === activePeerId && c.last_message
+            String(c.peer.id) === String(activePeerId) && c.last_message
               ? { ...c, last_message: { ...c.last_message, read: true } } : c
           ))
         }
@@ -745,7 +756,7 @@ export default function Chats() {
                       </div>
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1 min-w-0 flex-1">
-                          {lastMsg && lastMsg.sender_id === currentUser?.id && !lastMsg.deleted_for_everyone && (
+                          {lastMsg && String(lastMsg.sender_id) === String(currentUser?.id) && !lastMsg.deleted_for_everyone && (
                             <span className="shrink-0">
                               {lastMsg.read ? <CheckCheck size={12} className="text-indigo-500" /> : <Check size={12} className="text-slate-400" />}
                             </span>
@@ -815,8 +826,8 @@ export default function Chats() {
                     <MessageBubble
                       key={msg.id}
                       msg={msg}
-                      isMe={msg.sender_id === currentUser.id}
-                      currentUserId={currentUser.id}
+                      isMe={String(msg.sender_id) === String(currentUser.id)}
+                      currentUserId={String(currentUser.id)}
                       peerName={selectedPeer.name}
                       onReply={handleReply}
                       onReact={handleReact}
