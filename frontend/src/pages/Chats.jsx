@@ -320,8 +320,8 @@ export default function Chats() {
   const peerIdOf = (p) => p?.id || p?._id
 
   // ---------- Load conversations ----------
-  const fetchConversations = useCallback(async () => {
-    setLoading(true)
+  const fetchConversations = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     setErrorLoading(false)
     try {
       const res = await api.get('/api/messages/conversations', { headers: authHeaders() })
@@ -338,14 +338,22 @@ export default function Chats() {
       if (initialPeer) setSelectedPeer(initialPeer)
     } catch (e) {
       console.error('Failed to load conversations:', e)
-      setErrorLoading(true)
-      toast.error('Failed to load conversations. Please try again.')
+      if (!silent) setErrorLoading(true)
+      if (!silent) toast.error('Failed to load conversations. Please try again.')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [location.state])
 
   useEffect(() => { fetchConversations() }, [fetchConversations])
+
+  // Refresh conversations list every 15s to catch messages missed during WS gaps
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchConversations(true) // silent — no spinner
+    }, 15000)
+    return () => clearInterval(interval)
+  }, [fetchConversations])
 
   useEffect(() => {
     const handler = (e) => {
