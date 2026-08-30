@@ -533,7 +533,7 @@ export default function Chats() {
 
   return (
     <div className="flex flex-col overflow-hidden" style={{ height: 'calc(100dvh - 64px)' }}>
-      <div className="px-3 sm:px-6 lg:px-8 py-3 lg:py-6 max-w-6xl mx-auto w-full flex flex-col flex-1 min-h-0 overflow-hidden">
+      <div className="px-3 sm:px-6 lg:px-8 py-3 lg:py-6 max-w-6xl mx-auto w-full flex flex-col flex-1 min-h-0 overflow-hidden" style={{ maxWidth: '100vw' }}>
 
         {deleteTarget && (
           <DeleteConfirmModal
@@ -703,7 +703,7 @@ export default function Chats() {
 
                 <ReplyPreview replyTo={replyTo} onCancel={() => setReplyTo(null)} peerName={selectedPeer.name} currentUserId={currentUser.id} />
 
-                <form onSubmit={handleSend} className="p-3 border-t border-slate-100 bg-white shrink-0 flex items-center gap-1.5">
+                <form onSubmit={handleSend} className="p-3 border-t border-slate-100 bg-white shrink-0 flex items-center gap-1.5 w-full box-border">
                   <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelected} />
                   <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelected} />
                   <button type="button" disabled={uploading} onClick={() => imageInputRef.current?.click()} className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-all shrink-0 disabled:opacity-40"><ImageIcon size={17} /></button>
@@ -713,7 +713,7 @@ export default function Chats() {
                     placeholder={uploading ? 'Uploading...' : `Message ${selectedPeer.name?.split(' ')[0] || 'peer'}...`}
                     value={inputText} onChange={e => setInputText(e.target.value)}
                     onFocus={() => setShowEmojiPicker(false)} disabled={uploading}
-                    className="flex-1 px-3 py-2.5 bg-slate-100 border-none rounded-xl text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-700 transition-all disabled:opacity-60 min-w-0" />
+                    className="flex-1 w-0 px-3 py-2.5 bg-slate-100 border-none rounded-xl text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-700 transition-all disabled:opacity-60" />
                   <button type="submit" disabled={!inputText.trim()} className="p-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl transition-all shadow-sm active:scale-95 shrink-0"><Send size={15} /></button>
                 </form>
               </>
