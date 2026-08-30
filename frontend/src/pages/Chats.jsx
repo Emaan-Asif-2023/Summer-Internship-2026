@@ -533,7 +533,7 @@ export default function Chats() {
 
   return (
     <div className="flex flex-col overflow-hidden overflow-x-hidden w-full" style={{ height: 'calc(100dvh - 64px)' }}>
-      <div className="px-3 sm:px-6 lg:px-8 py-3 lg:py-6 max-w-6xl mx-auto w-full flex flex-col flex-1 min-h-0 overflow-hidden overflow-x-hidden">
+      <div className="px-0 sm:px-4 lg:px-8 py-0 sm:py-4 lg:py-6 max-w-6xl mx-auto w-full flex flex-col flex-1 min-h-0 overflow-hidden overflow-x-hidden">
 
         {deleteTarget && (
           <DeleteConfirmModal
@@ -556,7 +556,7 @@ export default function Chats() {
           </div>
         )}
 
-        <div className="flex items-center justify-between mb-3 shrink-0">
+        <div className="hidden sm:flex items-center justify-between mb-3 shrink-0">
           <div>
             <h1 className="text-lg font-bold text-slate-800 flex items-center gap-2" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
               <MessageSquare className="text-indigo-600" size={20} />
@@ -569,7 +569,7 @@ export default function Chats() {
           </Link>
         </div>
 
-        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm flex-1 overflow-hidden flex min-h-0">
+        <div className="bg-white border-0 sm:border border-slate-100 sm:rounded-2xl shadow-sm flex-1 overflow-hidden flex min-h-0">
 
           {/* Sidebar */}
           <div className={`w-full md:w-72 border-r border-slate-100 flex flex-col min-h-0 bg-slate-50/20 ${showMobileChat ? 'hidden md:flex' : 'flex'}`}>
