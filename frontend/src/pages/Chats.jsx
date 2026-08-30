@@ -391,7 +391,43 @@ export default function Chats() {
     loadHistory()
   }, [selectedPeer])
 
-  // ---------- Scroll to bottom ----------
+  // Sync delivered/read status from conversations into open chat messages
+  // This handles the case where sidebar updates but messages state is stale
+  useEffect(() => {
+    if (!selectedPeer || messages.length === 0) return
+    const pid = peerIdOf(selectedPeer)
+    const convo = conversations.find(c => String(c.peer.id) === String(pid))
+    if (!convo?.last_message) return
+    const lastMsg = convo.last_message
+    if (!lastMsg.delivered && !lastMsg.read) return
+    setMessages(prev => prev.map(m => {
+      if (String(m.sender_id) !== String(currentUser?.id)) return m
+      // Sync delivered/read from the conversation's last_message if it matches or is newer
+      if (m.id === lastMsg.id) return { ...m, delivered: lastMsg.delivered || m.delivered, read: lastMsg.read || m.read }
+      // For older messages, if last_message is read then all prior messages are also read
+      if (lastMsg.read) return { ...m, delivered: true, read: true }
+      // If last_message is delivered, all prior messages are also delivered
+      if (lastMsg.delivered) return { ...m, delivered: true }
+      return m
+    }))
+  }, [conversations])
+  // Sync delivered/read status from conversations into open chat messages.
+  // Handles the case where sidebar updated (via WS or poll) but messages state is stale.
+  useEffect(() => {
+    if (!selectedPeer || messages.length === 0) return
+    const pid = String(peerIdOf(selectedPeer))
+    const convo = conversations.find(c => String(c.peer.id) === pid)
+    if (!convo?.last_message) return
+    const lastMsg = convo.last_message
+    if (!lastMsg.delivered && !lastMsg.read) return
+    setMessages(prev => prev.map(m => {
+      if (String(m.sender_id) !== String(currentUser?.id)) return m
+      if (lastMsg.read) return { ...m, delivered: true, read: true }
+      if (lastMsg.delivered) return { ...m, delivered: true }
+      return m
+    }))
+  }, [conversations])
+
   useEffect(() => {
     if (messages.length === 0) return
     const isNew = messages.length > prevMessagesLengthRef.current && prevMessagesLengthRef.current > 0
@@ -532,11 +568,12 @@ export default function Chats() {
 
       // ── Delivery receipt (single message) ──
       if (data.event === 'delivery_receipt') {
-        // Store in pending set in case optimistic hasn't been replaced yet
         pendingDeliveryRef.current.add(data.message_id)
-        setMessages(prev => prev.map(m =>
-          m.id === data.message_id ? { ...m, delivered: true } : m
-        ))
+        setMessages(prev => {
+          const found = prev.some(m => m.id === data.message_id)
+          if (!found) return prev
+          return prev.map(m => m.id === data.message_id ? { ...m, delivered: true } : m)
+        })
         setConversations(prev => prev.map(c =>
           c.last_message?.id === data.message_id
             ? { ...c, last_message: { ...c.last_message, delivered: true } }
@@ -547,6 +584,7 @@ export default function Chats() {
       // ── Bulk delivery receipt (receiver came online) ──
       if (data.event === 'bulk_delivery_receipt') {
         const ids = new Set(data.message_ids)
+        ids.forEach(id => pendingDeliveryRef.current.add(id))
         setMessages(prev => prev.map(m => ids.has(m.id) ? { ...m, delivered: true } : m))
         setConversations(prev => prev.map(c =>
           c.last_message && ids.has(c.last_message.id)
