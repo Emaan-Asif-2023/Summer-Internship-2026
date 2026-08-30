@@ -677,7 +677,7 @@ export default function Projects() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit mb-6 overflow-x-auto">
+      <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-6 overflow-x-auto max-w-full scrollbar-hide">
         {TABS.map(t => (
           <button
             key={t.key}
