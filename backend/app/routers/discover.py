@@ -206,9 +206,10 @@ async def search_students(
             {"university": {"$regex": search, "$options": "i"}},
         ]
     if department:
-        q["department"] = {"$regex": "^" + department + "$", "$options": "i"}
+        q["department"] = {"$regex": department, "$options": "i"}
     if university:
-        q["university"] = {"$regex": "^" + university + "$", "$options": "i"}
+        # Use contains match — university names are long and may have minor formatting differences
+        q["university"] = {"$regex": university, "$options": "i"}
     if semester is not None:
         q["semester"] = {"$in": [semester, str(semester)]}
     if skills:
