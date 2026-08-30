@@ -59,25 +59,35 @@ export function NotificationProvider({ children }) {
     let ws = null
     let pingInterval = null
     let reconnectTimeout = null
-    let dead = false  // set to true on cleanup so we stop reconnecting
+    let dead = false
+    let missedPongs = 0
 
     const connect = () => {
       if (dead) return
       ws = new WebSocket(`${WS_URL}?token=${token}`)
       wsRef.current = ws
+      missedPongs = 0
 
       ws.onopen = () => {
         console.log('[WS] connected')
-        // Send a ping every 30s to prevent Render from closing the idle connection
+        missedPongs = 0
+        // Ping every 25s — Render kills idle WS after ~55s
         pingInterval = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send('ping')
-            console.log('[WS] ping sent')
+            missedPongs++
+            // If we sent 3 pings with no response, connection is zombie — reconnect
+            if (missedPongs >= 3) {
+              console.log('[WS] zombie connection detected, reconnecting...')
+              clearInterval(pingInterval)
+              ws.close()
+            }
           }
-        }, 30000)
+        }, 25000)
       }
 
       ws.onmessage = (event) => {
+        missedPongs = 0  // any message resets the zombie counter
         if (event.data === 'pong') return
         let data
         try { data = JSON.parse(event.data) } catch { return }
@@ -103,7 +113,6 @@ export function NotificationProvider({ children }) {
           }
         }
 
-        // Fan out to all subscribers (Chats.jsx uses this for new_message / read_receipt)
         listenersRef.current.forEach(fn => fn(data))
       }
 
@@ -113,18 +122,34 @@ export function NotificationProvider({ children }) {
         console.log('[WS] closed — code:', e.code, 'reason:', e.reason)
         clearInterval(pingInterval)
         if (!dead) {
-          console.log('[WS] reconnecting immediately...')
-          reconnectTimeout = setTimeout(connect, 0)
+          const delay = e.code === 4401 ? 0 : 2000  // immediate for auth errors, 2s otherwise
+          reconnectTimeout = setTimeout(connect, delay)
         }
       }
     }
 
     connect()
 
+    // Reconnect and refresh when tab becomes visible again
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[WS] tab visible — checking connection')
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          console.log('[WS] reconnecting on tab focus')
+          clearTimeout(reconnectTimeout)
+          connect()
+        }
+        // Notify subscribers to refresh their data
+        listenersRef.current.forEach(fn => fn({ event: 'tab_visible' }))
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
     return () => {
       dead = true
       clearInterval(pingInterval)
       clearTimeout(reconnectTimeout)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
       if (ws) ws.close()
       wsRef.current = null
     }

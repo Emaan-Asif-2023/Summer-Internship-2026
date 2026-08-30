@@ -593,6 +593,20 @@ export default function Chats() {
         ))
       }
 
+      // ── Tab became visible — refresh to catch anything missed ──
+      if (data.event === 'tab_visible') {
+        fetchConversations(true)
+        if (selectedPeerRef.current) {
+          const pid = peerIdOf(selectedPeerRef.current)
+          api.get(`/api/messages/${pid}?limit=50`, { headers: authHeaders() })
+            .then(res => {
+              setMessages(res.data || [])
+              api.post(`/api/messages/${pid}/read`, {}, { headers: authHeaders() })
+                .then(() => fetchNotifications()).catch(() => {})
+            }).catch(() => {})
+        }
+      }
+
       // ── Message deleted or reacted ──
       if (data.event === 'message_deleted' || data.event === 'message_reacted') {
         const updated = data.message
