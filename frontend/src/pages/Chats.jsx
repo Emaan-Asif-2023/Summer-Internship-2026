@@ -650,7 +650,7 @@ export default function Chats() {
           </div>
 
           {/* Chat frame */}
-          <div className={`flex-1 flex flex-col min-h-0 bg-white relative ${!showMobileChat ? 'hidden md:flex' : 'flex'}`}>
+          <div className={`flex-1 flex flex-col min-h-0 bg-white relative overflow-x-hidden ${!showMobileChat ? 'hidden md:flex' : 'flex'}`}>
             {selectedPeer ? (
               <>
                 <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/20">
@@ -674,7 +674,7 @@ export default function Chats() {
                   </div>
                 </div>
 
-                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-slate-50/30">
+                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-slate-50/30" style={{ overflowX: 'hidden' }}>
                   {loadingMessages ? (
                     <div className="flex items-center justify-center h-full text-xs text-slate-400">Loading conversation...</div>
                   ) : messages.length === 0 ? (
