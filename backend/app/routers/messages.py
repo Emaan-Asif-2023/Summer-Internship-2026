@@ -44,13 +44,13 @@ def serialize_message(m: dict) -> dict:
         "file_url": m.get("file_url"),
         "file_name": m.get("file_name"),
         "file_type": m.get("file_type"),
+        "delivered": m.get("delivered", False),  # receiver's device received it
         "read": m.get("read", False),
         "read_at": m.get("read_at"),
         "created_at": m["created_at"],
-        # New fields
-        "reply_to": m.get("reply_to"),        # {id, sender_id, text, type}
-        "reactions": m.get("reactions", {}),  # {emoji: [user_id, ...]}
-        "deleted_for": m.get("deleted_for", []),  # list of user_id strings
+        "reply_to": m.get("reply_to"),
+        "reactions": m.get("reactions", {}),
+        "deleted_for": m.get("deleted_for", []),
         "deleted_for_everyone": m.get("deleted_for_everyone", False),
     }
 
@@ -209,6 +209,7 @@ async def send_text_message(
         "type": "text",
         "text": text,
         "read": False,
+        "delivered": False,
         "created_at": now,
         "reply_to": reply_to_snapshot,
         "reactions": {},
@@ -217,10 +218,24 @@ async def send_text_message(
     }
     result = await db.messages.insert_one(msg)
     msg["_id"] = result.inserted_id
+
+    # Mark delivered immediately if receiver is currently online
+    receiver_online = manager.is_online(str(pid))
+    if receiver_online:
+        await db.messages.update_one({"_id": msg["_id"]}, {"$set": {"delivered": True}})
+        msg["delivered"] = True
+
     serialized = serialize_message(msg)
 
     await manager.send_to_user(str(pid), {"event": "new_message", "message": serialized})
     print(f"[WS] send_to_user {str(pid)} — active connections: {list(manager.active.keys())}", flush=True)
+
+    # Notify sender that message was delivered so their tick updates
+    if receiver_online:
+        await manager.send_to_user(str(user_id), {
+            "event": "delivery_receipt",
+            "message_id": serialized["id"],
+        })
     return serialized
 
 
@@ -292,7 +307,7 @@ async def mark_conversation_read(
     now = datetime.utcnow()
     result = await db.messages.update_many(
         {"sender_id": pid, "receiver_id": user_id, "read": False},
-        {"$set": {"read": True, "read_at": now}}
+        {"$set": {"read": True, "delivered": True, "read_at": now}}
     )
     if result.modified_count:
         await manager.send_to_user(str(pid), {
@@ -470,6 +485,35 @@ async def chat_websocket(
 
     user_id = str(user["_id"])
     await manager.connect(user_id, websocket)
+
+    # When user comes online, mark all undelivered messages they received as delivered
+    # and notify each sender so their ticks update
+    try:
+        undelivered = await db.messages.find({
+            "receiver_id": user["_id"],
+            "delivered": False,
+            "deleted_for_everyone": {"$ne": True},
+        }).to_list(length=500)
+
+        if undelivered:
+            sender_ids = set()
+            msg_ids = [m["_id"] for m in undelivered]
+            await db.messages.update_many(
+                {"_id": {"$in": msg_ids}},
+                {"$set": {"delivered": True}}
+            )
+            for m in undelivered:
+                sender_ids.add(str(m["sender_id"]))
+
+            # Notify each sender that their messages were delivered
+            for sid in sender_ids:
+                affected_ids = [str(m["_id"]) for m in undelivered if str(m["sender_id"]) == sid]
+                await manager.send_to_user(sid, {
+                    "event": "bulk_delivery_receipt",
+                    "message_ids": affected_ids,
+                })
+    except Exception as e:
+        print(f"[WS] delivery receipt on connect failed: {e}", flush=True)
     try:
         while True:
             # Clients don't need to send anything for this to work; we just

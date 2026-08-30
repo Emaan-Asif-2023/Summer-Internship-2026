@@ -238,7 +238,9 @@ function MessageBubble({ msg, isMe, onReply, onReact, onDelete, currentUserId, p
               ? <Check size={12} className="text-slate-300" />          // single grey = sending
               : msg.read
                 ? <CheckCheck size={12} className="text-indigo-500" />  // double blue = read
-                : <CheckCheck size={12} className="text-slate-400" />   // double grey = delivered
+                : msg.delivered
+                  ? <CheckCheck size={12} className="text-slate-400" /> // double grey = delivered to device
+                  : <Check size={12} className="text-slate-400" />      // single grey = sent to server only
           )}
         </div>
       </div>
@@ -498,6 +500,29 @@ export default function Chats() {
               ? { ...c, last_message: { ...c.last_message, read: true } } : c
           ))
         }
+      }
+
+      if (data.event === 'delivery_receipt') {
+        // Single message delivered to receiver's device
+        setMessages(prev => prev.map(m =>
+          m.id === data.message_id ? { ...m, delivered: true } : m
+        ))
+        setConversations(prev => prev.map(c =>
+          c.last_message?.id === data.message_id
+            ? { ...c, last_message: { ...c.last_message, delivered: true } }
+            : c
+        ))
+      }
+
+      if (data.event === 'bulk_delivery_receipt') {
+        // Multiple messages delivered when receiver came online
+        const ids = new Set(data.message_ids)
+        setMessages(prev => prev.map(m => ids.has(m.id) ? { ...m, delivered: true } : m))
+        setConversations(prev => prev.map(c =>
+          c.last_message && ids.has(c.last_message.id)
+            ? { ...c, last_message: { ...c.last_message, delivered: true } }
+            : c
+        ))
       }
 
       if (data.event === 'message_deleted' || data.event === 'message_reacted') {
@@ -766,7 +791,9 @@ export default function Chats() {
                                 ? <Check size={12} className="text-slate-300" />
                                 : lastMsg.read
                                   ? <CheckCheck size={12} className="text-indigo-500" />
-                                  : <CheckCheck size={12} className="text-slate-400" />
+                                  : lastMsg.delivered
+                                    ? <CheckCheck size={12} className="text-slate-400" />
+                                    : <Check size={12} className="text-slate-400" />
                               }
                             </span>
                           )}
