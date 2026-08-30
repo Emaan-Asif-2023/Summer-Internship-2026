@@ -235,12 +235,10 @@ function MessageBubble({ msg, isMe, onReply, onReact, onDelete, currentUserId, p
           <span>{formatTime(msg.created_at)}</span>
           {isMe && !isDeleted && (
             msg._sending
-              ? <Check size={12} className="text-slate-300" />          // single grey = sending
+              ? <Check size={12} className="text-slate-300" />
               : msg.read
-                ? <CheckCheck size={12} className="text-indigo-500" />  // double blue = read
-                : msg.delivered
-                  ? <CheckCheck size={12} className="text-slate-400" /> // double grey = delivered to device
-                  : <Check size={12} className="text-slate-400" />      // single grey = sent to server only
+                ? <CheckCheck size={12} className="text-indigo-500" />
+                : <Check size={12} className="text-slate-400" />
           )}
         </div>
       </div>
@@ -795,9 +793,7 @@ export default function Chats() {
                                 ? <Check size={12} className="text-slate-300" />
                                 : lastMsg.read
                                   ? <CheckCheck size={12} className="text-indigo-500" />
-                                  : lastMsg.delivered
-                                    ? <CheckCheck size={12} className="text-slate-400" />
-                                    : <Check size={12} className="text-slate-400" />
+                                  : <Check size={12} className="text-slate-400" />
                               }
                             </span>
                           )}
