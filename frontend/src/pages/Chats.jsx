@@ -238,7 +238,9 @@ function MessageBubble({ msg, isMe, onReply, onReact, onDelete, currentUserId, p
               ? <Check size={12} className="text-slate-300" />
               : msg.read
                 ? <CheckCheck size={12} className="text-indigo-500" />
-                : <Check size={12} className="text-slate-400" />
+                : msg.delivered
+                  ? <CheckCheck size={12} className="text-slate-400" />
+                  : <Check size={12} className="text-slate-400" />
           )}
         </div>
       </div>
@@ -812,7 +814,9 @@ export default function Chats() {
                                 ? <Check size={12} className="text-slate-300" />
                                 : lastMsg.read
                                   ? <CheckCheck size={12} className="text-indigo-500" />
-                                  : <Check size={12} className="text-slate-400" />
+                                  : lastMsg.delivered
+                                    ? <CheckCheck size={12} className="text-slate-400" />
+                                    : <Check size={12} className="text-slate-400" />
                               }
                             </span>
                           )}
