@@ -419,10 +419,15 @@ export default function Chats() {
         const res = await api.get(`/api/messages/${pid}?limit=50`, { headers: authHeaders() })
         const fresh = res.data || []
         setMessages(prev => {
-          if (fresh.length > prev.length) {
+          // Update if count changed OR last message ID changed
+          const prevLast = prev[prev.length - 1]?.id
+          const freshLast = fresh[fresh.length - 1]?.id
+          if (fresh.length !== prev.length || freshLast !== prevLast) {
             api.post(`/api/messages/${pid}/read`, {}, { headers: authHeaders() })
               .then(() => fetchNotifications()).catch(() => {})
-            setConversations(c => c.map(conv => conv.peer.id === pid ? { ...conv, unread_count: 0 } : conv))
+            setConversations(c => c.map(conv =>
+              conv.peer.id === pid ? { ...conv, unread_count: 0 } : conv
+            ))
             return fresh
           }
           return prev
@@ -474,7 +479,7 @@ export default function Chats() {
         // Always update sidebar last_message and unread count
         setConversations(prev => {
           const idx = prev.findIndex(c => String(c.peer.id) === otherPersonId)
-          if (idx === -1) { fetchConversations(); return prev }
+          if (idx === -1) return prev  // not in list yet — polling will catch it
           const updated = [...prev]
           const current = updated[idx]
           const isActive = activePeerId && String(activePeerId) === otherPersonId
