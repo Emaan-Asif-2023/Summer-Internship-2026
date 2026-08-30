@@ -314,7 +314,8 @@ export default function Chats() {
   const fileInputRef = useRef(null)
   const prevMessagesLengthRef = useRef(0)
   const inputRef = useRef(null)
-  const conversationsRef = useRef([])  // always-current ref to avoid stale closures in WS handler
+  const conversationsRef = useRef([])
+  const pendingDeliveryRef = useRef(new Set()) // message IDs that got delivery receipt before optimistic replaced  // always-current ref to avoid stale closures in WS handler
 
   useEffect(() => { selectedPeerRef.current = selectedPeer }, [selectedPeer])
   useEffect(() => { conversationsRef.current = conversations }, [conversations])
@@ -531,6 +532,8 @@ export default function Chats() {
 
       // ── Delivery receipt (single message) ──
       if (data.event === 'delivery_receipt') {
+        // Store in pending set in case optimistic hasn't been replaced yet
+        pendingDeliveryRef.current.add(data.message_id)
         setMessages(prev => prev.map(m =>
           m.id === data.message_id ? { ...m, delivered: true } : m
         ))
@@ -595,8 +598,12 @@ export default function Chats() {
     try {
       const res = await api.post(`/api/messages/${pid}/text`, { text, reply_to_id: replyToId }, { headers: authHeaders() })
       const msg = res.data
-      // Replace optimistic message with real one
-      setMessages(prev => prev.map(m => m.id === tempId ? msg : m))
+      // Replace optimistic message — apply any delivery receipt that arrived during the round trip
+      const alreadyDelivered = pendingDeliveryRef.current.has(msg.id)
+      if (alreadyDelivered) pendingDeliveryRef.current.delete(msg.id)
+      setMessages(prev => prev.map(m =>
+        m.id === tempId ? { ...msg, delivered: alreadyDelivered || msg.delivered } : m
+      ))
       setConversations(prev => {
         const updated = prev.map(c => c.peer.id === pid ? { ...c, last_message: msg } : c)
         updated.sort((a, b) => new Date(b.last_message?.created_at || 0) - new Date(a.last_message?.created_at || 0))
