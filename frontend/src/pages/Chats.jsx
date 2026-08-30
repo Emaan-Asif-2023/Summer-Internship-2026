@@ -51,7 +51,7 @@ const renderPeerAvatar = (peer, sizeClass = 'w-10 h-10', textClass = 'text-xs') 
 }
 
 const formatTime = (iso) => {
-  try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+  try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) }
   catch { return '' }
 }
 
@@ -59,7 +59,8 @@ const formatConvoTime = (iso) => {
   if (!iso) return ''
   const d = new Date(iso)
   const now = new Date()
-  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  if (d.toDateString() === now.toDateString())
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
@@ -108,7 +109,7 @@ function MessageBubble({ msg, isMe, onReply, onReact, onDelete, currentUserId, p
 
   return (
     <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} group`}>
-      <div className="max-w-[75%] space-y-0.5 relative">
+      <div className="max-w-[75%] space-y-0.5 relative overflow-visible">
 
         {/* Reply quote */}
         {msg.reply_to && !isDeleted && (
@@ -152,9 +153,9 @@ function MessageBubble({ msg, isMe, onReply, onReact, onDelete, currentUserId, p
             </a>
           )}
 
-          {/* Hover action buttons */}
+          {/* Hover action buttons — shown beside bubble on desktop, above on mobile */}
           {!isDeleted && !msg._sending && (
-            <div className={`absolute top-1/2 -translate-y-1/2 ${isMe ? '-left-20' : '-right-20'} hidden group-hover:flex items-center gap-1`}>
+            <div className={`absolute ${isMe ? 'right-0 -top-8' : 'left-0 -top-8'} md:top-1/2 md:-translate-y-1/2 ${isMe ? 'md:-left-20 md:right-auto' : 'md:-right-20 md:left-auto'} hidden group-hover:flex items-center gap-1 z-10`}>
               <button
                 onClick={() => onReply(msg)}
                 className="p-1.5 bg-white border border-slate-200 rounded-full text-slate-500 hover:text-indigo-600 hover:border-indigo-200 shadow-sm transition-all"
@@ -759,7 +760,7 @@ export default function Chats() {
   })
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-6 flex flex-col" style={{ height: 'calc(100dvh - 64px)' }}>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-6 flex flex-col overflow-x-hidden" style={{ height: 'calc(100dvh - 64px)' }}>
 
       {/* Delete message modal */}
       {deleteTarget && (
@@ -900,13 +901,13 @@ export default function Chats() {
           {selectedPeer ? (
             <>
               {/* Chat header */}
-              <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/20">
-                <div className="flex items-center gap-3 min-w-0">
+              <div className="p-3 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/20 overflow-hidden">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <button onClick={() => setShowMobileChat(false)} className="md:hidden p-1.5 hover:bg-slate-100 rounded-xl text-slate-500 shrink-0">
                     <ArrowLeft size={18} />
                   </button>
-                  <div className="relative shrink-0">{renderPeerAvatar(selectedPeer, 'w-10 h-10', 'text-xs')}</div>
-                  <div className="min-w-0">
+                  <div className="relative shrink-0">{renderPeerAvatar(selectedPeer, 'w-9 h-9', 'text-xs')}</div>
+                  <div className="min-w-0 flex-1">
                     <h3 className="text-sm font-bold text-slate-800 truncate">{selectedPeer.name || 'Anonymous Peer'}</h3>
                     <p className="text-[10px] text-slate-400 flex items-center gap-1 truncate">
                       <MapPin size={10} className="text-slate-300 shrink-0" />
@@ -914,7 +915,7 @@ export default function Chats() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1 shrink-0 ml-2">
                   <button
                     onClick={() => setShowClearConfirm(true)}
                     className="p-2 hover:bg-rose-50 rounded-xl text-slate-400 hover:text-rose-600 transition-all"
@@ -924,14 +925,14 @@ export default function Chats() {
                   </button>
                   <Link to={`/profile/user/${peerIdOf(selectedPeer)}`}
                     className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-indigo-600 transition-all flex items-center gap-1 text-[10px] font-semibold">
-                    <span>Profile</span>
+                    <span className="hidden sm:inline">Profile</span>
                     <ExternalLink size={12} />
                   </Link>
                 </div>
               </div>
 
               {/* Messages */}
-              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/30">
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 bg-slate-50/30">
                 {loadingMessages ? (
                   <div className="flex items-center justify-center h-full text-xs text-slate-400">Loading conversation...</div>
                 ) : messages.length === 0 ? (
