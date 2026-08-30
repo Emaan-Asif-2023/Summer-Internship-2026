@@ -153,7 +153,7 @@ function MessageBubble({ msg, isMe, onReply, onReact, onDelete, currentUserId, p
           )}
 
           {/* Hover action buttons */}
-          {!isDeleted && (
+          {!isDeleted && !msg._sending && (
             <div className={`absolute top-1/2 -translate-y-1/2 ${isMe ? '-left-20' : '-right-20'} hidden group-hover:flex items-center gap-1`}>
               <button
                 onClick={() => onReply(msg)}
@@ -233,9 +233,12 @@ function MessageBubble({ msg, isMe, onReply, onReact, onDelete, currentUserId, p
         {/* Time + tick */}
         <div className={`flex items-center gap-1 text-[9px] text-slate-400 px-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
           <span>{formatTime(msg.created_at)}</span>
-          {isMe && !isDeleted && (msg.read
-            ? <CheckCheck size={12} className="text-indigo-500" />
-            : <Check size={12} />
+          {isMe && !isDeleted && (
+            msg._sending
+              ? <span className="text-[9px] text-slate-300">🕐</span>
+              : msg.read
+                ? <CheckCheck size={12} className="text-indigo-500" />
+                : <Check size={12} />
           )}
         </div>
       </div>
@@ -494,17 +497,50 @@ export default function Chats() {
     setInputText('')
     setShowEmojiPicker(false)
     const replyToId = replyTo?.id || null
+    const replyToSnapshot = replyTo || null
     setReplyTo(null)
+
+    // Optimistic message — show instantly before server confirms
+    const tempId = `temp_${Date.now()}`
+    const optimisticMsg = {
+      id: tempId,
+      sender_id: currentUser.id,
+      receiver_id: pid,
+      type: 'text',
+      text,
+      read: false,
+      created_at: new Date().toISOString(),
+      reply_to: replyToSnapshot,
+      reactions: {},
+      deleted_for: [],
+      deleted_for_everyone: false,
+      _sending: true, // flag to show clock icon
+    }
+    setMessages(prev => [...prev, optimisticMsg])
+    // Update sidebar immediately with latest message
+    setConversations(prev => {
+      const updated = prev.map(c => c.peer.id === pid ? { ...c, last_message: optimisticMsg } : c)
+      updated.sort((a, b) => new Date(b.last_message?.created_at || 0) - new Date(a.last_message?.created_at || 0))
+      return updated
+    })
+
     try {
       const res = await api.post(`/api/messages/${pid}/text`, { text, reply_to_id: replyToId }, { headers: authHeaders() })
       const msg = res.data
-      setMessages(prev => [...prev, msg])
+      // Replace optimistic message with real one
+      setMessages(prev => prev.map(m => m.id === tempId ? msg : m))
       setConversations(prev => {
         const updated = prev.map(c => c.peer.id === pid ? { ...c, last_message: msg } : c)
         updated.sort((a, b) => new Date(b.last_message?.created_at || 0) - new Date(a.last_message?.created_at || 0))
         return updated
       })
     } catch (err) {
+      // Remove optimistic message on failure
+      setMessages(prev => prev.filter(m => m.id !== tempId))
+      setConversations(prev => {
+        const updated = prev.map(c => c.peer.id === pid ? { ...c, last_message: c.last_message?.id === tempId ? null : c.last_message } : c)
+        return updated
+      })
       toast.error(err.response?.data?.detail || 'Failed to send message')
       setInputText(text)
     }
