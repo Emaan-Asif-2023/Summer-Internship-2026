@@ -532,8 +532,8 @@ export default function Chats() {
   })
 
   return (
-    <div className="flex flex-col overflow-hidden" style={{ height: 'calc(100dvh - 64px)' }}>
-      <div className="px-3 sm:px-6 lg:px-8 py-3 lg:py-6 max-w-6xl mx-auto w-full flex flex-col flex-1 min-h-0 overflow-hidden" style={{ maxWidth: '100vw' }}>
+    <div className="flex flex-col overflow-hidden overflow-x-hidden w-full" style={{ height: 'calc(100dvh - 64px)' }}>
+      <div className="px-3 sm:px-6 lg:px-8 py-3 lg:py-6 max-w-6xl mx-auto w-full flex flex-col flex-1 min-h-0 overflow-hidden overflow-x-hidden">
 
         {deleteTarget && (
           <DeleteConfirmModal
@@ -696,8 +696,10 @@ export default function Chats() {
                 </div>
 
                 {showEmojiPicker && (
-                  <div className="absolute bottom-20 right-4 z-20">
-                    <EmojiPicker onEmojiClick={(d) => setInputText(prev => prev + d.emoji)} height={320} width={280} />
+                  <div className="absolute bottom-20 left-0 right-0 mx-auto z-20 flex justify-center pointer-events-none">
+                    <div className="pointer-events-auto">
+                      <EmojiPicker onEmojiClick={(d) => setInputText(prev => prev + d.emoji)} height={320} width={Math.min(280, window.innerWidth - 16)} />
+                    </div>
                   </div>
                 )}
 

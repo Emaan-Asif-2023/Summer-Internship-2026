@@ -10,7 +10,7 @@ export default function DashboardLayout() {
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-300 ${
+      className={`min-h-screen overflow-x-hidden transition-colors duration-300 ${
         theme === 'dark'
           ? 'bg-slate-950 text-slate-100'
           : 'bg-surface text-slate-800'
