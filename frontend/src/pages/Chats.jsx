@@ -759,7 +759,7 @@ export default function Chats() {
   })
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-6 h-[calc(100dvh-64px-56px)] lg:h-[calc(100vh-80px)] flex flex-col">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-6 flex flex-col" style={{ height: 'calc(100dvh - 64px)' }}>
 
       {/* Delete message modal */}
       {deleteTarget && (

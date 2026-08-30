@@ -20,7 +20,7 @@ export default function DashboardLayout() {
 
       {/* Main content — offset by sidebar width on desktop */}
       {/* On mobile Chats page, no bottom padding since chat fills viewport */}
-      <main className={`lg:ml-64 min-h-screen ${isChats ? 'pb-0' : 'pb-20'} lg:pb-0`}>
+      <main className={`lg:ml-64 ${isChats ? 'h-dvh overflow-hidden' : 'min-h-screen pb-20'} lg:min-h-screen lg:pb-0`}>
         <Outlet />
       </main>
 
