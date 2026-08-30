@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useTheme } from '../context/ThemeContext.jsx'
 import api from '../api/axios.js'
 import toast from 'react-hot-toast'
 import {
-  User, Users, Lock, Mail, Github, Linkedin, Save, Sparkles, Clock, Briefcase, Info, X, Check, MapPin, Upload, Zap, MessageSquare
+  User, Users, Lock, Mail, Github, Linkedin, Save, Sparkles, Clock, Briefcase, Info, X, Check, MapPin, Upload, Zap, MessageSquare, LogOut, Sun, Moon
 } from 'lucide-react'
 
 const PAKISTAN_UNIVERSITIES = [
@@ -164,6 +165,7 @@ const AVAILABILITY_OPTIONS = [
 
 export default function Profile() {
   const { user, refreshUser, logout } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('view') // 'view' | 'edit' | 'connections' | 'security'
   const [connections, setConnections] = useState([])
@@ -565,6 +567,24 @@ export default function Profile() {
               }`}
           >
             Security
+          </button>
+        </div>
+
+        {/* Mobile-only: Theme toggle + Logout */}
+        <div className="flex lg:hidden items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={toggleTheme}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-2xl text-xs font-semibold text-slate-600 transition-all"
+          >
+            {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
+            {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+          </button>
+          <button
+            onClick={logout}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 hover:bg-red-100 rounded-2xl text-xs font-semibold text-red-600 transition-all"
+          >
+            <LogOut size={15} />
+            Log Out
           </button>
         </div>
       </div>

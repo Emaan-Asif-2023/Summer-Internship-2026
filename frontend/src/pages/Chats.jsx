@@ -64,7 +64,6 @@ const formatConvoTime = (iso) => {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
-// ---------- Reply Preview (inside input area) ----------
 function ReplyPreview({ replyTo, onCancel, peerName, currentUserId }) {
   if (!replyTo) return null
   const isMe = replyTo.sender_id === currentUserId
@@ -84,15 +83,11 @@ function ReplyPreview({ replyTo, onCancel, peerName, currentUserId }) {
   )
 }
 
-// ---------- Message Bubble ----------
 function MessageBubble({ msg, isMe, onReply, onReact, onDelete, currentUserId, peerName }) {
   const [showMenu, setShowMenu] = useState(false)
-  const [showReactionPicker, setShowReactionPicker] = useState(false)
   const menuRef = useRef(null)
-
   const isDeleted = msg.deleted_for_everyone
 
-  // Close menu on outside click
   useEffect(() => {
     if (!showMenu) return
     const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false) }
@@ -102,109 +97,58 @@ function MessageBubble({ msg, isMe, onReply, onReact, onDelete, currentUserId, p
 
   const reactionEntries = Object.entries(msg.reactions || {})
   const totalReactions = reactionEntries.reduce((s, [, arr]) => s + arr.length, 0)
-
-  const bubbleBase = isMe
-    ? 'bg-indigo-600 text-white rounded-br-none'
-    : 'bg-white text-slate-700 border border-slate-100 rounded-bl-none'
+  const bubbleBase = isMe ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white text-slate-700 border border-slate-100 rounded-bl-none'
 
   return (
     <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} group`}>
-      <div className="max-w-[75%] space-y-0.5 relative overflow-visible">
-
-        {/* Reply quote */}
+      <div className="max-w-[80%] space-y-0.5">
         {msg.reply_to && !isDeleted && (
-          <div className={`flex items-start gap-2 px-3 py-1.5 rounded-xl text-[10px] mb-0.5 border-l-4 border-indigo-400 ${
-            isMe ? 'bg-indigo-700/50 text-indigo-100' : 'bg-slate-100 text-slate-500'
-          }`}>
+          <div className={`flex items-start gap-2 px-3 py-1.5 rounded-xl text-[10px] mb-0.5 border-l-4 border-indigo-400 ${isMe ? 'bg-indigo-700/50 text-indigo-100' : 'bg-slate-100 text-slate-500'}`}>
             <CornerUpLeft size={11} className="shrink-0 mt-0.5 opacity-70" />
             <div className="min-w-0">
-              <p className="font-bold text-[9px] opacity-80">
-                {msg.reply_to.sender_id === currentUserId ? 'You' : peerName}
-              </p>
+              <p className="font-bold text-[9px] opacity-80">{msg.reply_to.sender_id === currentUserId ? 'You' : peerName}</p>
               <p className="truncate">{msg.reply_to.text || (msg.reply_to.type === 'image' ? '📷 Photo' : '📎 File')}</p>
             </div>
           </div>
         )}
 
-        {/* Bubble content */}
         <div className="relative">
           {isDeleted ? (
-            <div className={`px-4 py-2.5 rounded-2xl text-xs italic opacity-60 ${bubbleBase}`}>
-              🚫 This message was deleted
-            </div>
+            <div className={`px-4 py-2.5 rounded-2xl text-xs italic opacity-60 ${bubbleBase}`}>🚫 This message was deleted</div>
           ) : msg.type === 'text' ? (
-            <div className={`px-4 py-2.5 rounded-2xl text-xs leading-relaxed shadow-sm whitespace-pre-wrap break-words ${bubbleBase}`}>
-              {msg.text}
-            </div>
+            <div className={`px-4 py-2.5 rounded-2xl text-xs leading-relaxed shadow-sm whitespace-pre-wrap break-words ${bubbleBase}`}>{msg.text}</div>
           ) : msg.type === 'image' ? (
             <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="block">
-              <img src={msg.file_url} alt={msg.file_name || 'Image'}
-                className="max-w-[220px] rounded-2xl border border-slate-100 shadow-sm hover:opacity-90 transition-opacity" />
+              <img src={msg.file_url} alt={msg.file_name || 'Image'} className="max-w-[200px] rounded-2xl border border-slate-100 shadow-sm hover:opacity-90 transition-opacity" />
             </a>
           ) : (
             <a href={msg.file_url} target="_blank" rel="noopener noreferrer" download={msg.file_name}
-              className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-xs shadow-sm transition-all ${
-                isMe ? 'bg-indigo-600 text-white rounded-br-none hover:bg-indigo-700'
-                     : 'bg-white text-slate-700 border border-slate-100 rounded-bl-none hover:bg-slate-50'
-              }`}>
+              className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-xs shadow-sm transition-all ${isMe ? 'bg-indigo-600 text-white rounded-br-none hover:bg-indigo-700' : 'bg-white text-slate-700 border border-slate-100 rounded-bl-none hover:bg-slate-50'}`}>
               <FileText size={16} className="shrink-0" />
               <span className="truncate max-w-[140px] font-medium">{msg.file_name || 'File'}</span>
               <Download size={13} className="shrink-0 opacity-70" />
             </a>
           )}
 
-          {/* Hover action buttons — shown beside bubble on desktop, above on mobile */}
           {!isDeleted && !msg._sending && (
-            <div className={`absolute ${isMe ? 'right-0 -top-8' : 'left-0 -top-8'} md:top-1/2 md:-translate-y-1/2 ${isMe ? 'md:-left-20 md:right-auto' : 'md:-right-20 md:left-auto'} hidden group-hover:flex items-center gap-1 z-10`}>
-              <button
-                onClick={() => onReply(msg)}
-                className="p-1.5 bg-white border border-slate-200 rounded-full text-slate-500 hover:text-indigo-600 hover:border-indigo-200 shadow-sm transition-all"
-                title="Reply"
-              >
+            <div className={`absolute -top-7 ${isMe ? 'right-0' : 'left-0'} hidden group-hover:flex items-center gap-1 z-10`}>
+              <button onClick={() => onReply(msg)} className="p-1.5 bg-white border border-slate-200 rounded-full text-slate-500 hover:text-indigo-600 shadow-sm transition-all" title="Reply">
                 <Reply size={12} />
               </button>
-              <div className="relative" ref={isMe ? menuRef : null}>
-                <button
-                  onClick={() => setShowMenu(v => !v)}
-                  className="p-1.5 bg-white border border-slate-200 rounded-full text-slate-500 hover:text-slate-700 shadow-sm transition-all"
-                  title="More"
-                >
+              <div className="relative" ref={menuRef}>
+                <button onClick={() => setShowMenu(v => !v)} className="p-1.5 bg-white border border-slate-200 rounded-full text-slate-500 hover:text-slate-700 shadow-sm transition-all">
                   <MoreVertical size={12} />
                 </button>
                 {showMenu && (
                   <div className={`absolute bottom-full mb-1 ${isMe ? 'right-0' : 'left-0'} bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-30 w-44`}>
-                    {/* Quick reactions */}
                     <div className="flex items-center gap-1 px-2 py-1.5 border-b border-slate-100">
                       {QUICK_REACTIONS.map(emoji => (
-                        <button
-                          key={emoji}
-                          onClick={() => { onReact(msg, emoji); setShowMenu(false) }}
-                          className="text-base hover:scale-125 transition-transform"
-                        >
-                          {emoji}
-                        </button>
+                        <button key={emoji} onClick={() => { onReact(msg, emoji); setShowMenu(false) }} className="text-base hover:scale-125 transition-transform">{emoji}</button>
                       ))}
                     </div>
-                    <button
-                      onClick={() => { onReply(msg); setShowMenu(false) }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 transition-colors"
-                    >
-                      <Reply size={13} /> Reply
-                    </button>
-                    <button
-                      onClick={() => { onDelete(msg, false); setShowMenu(false) }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 transition-colors"
-                    >
-                      <Trash size={13} /> Delete for me
-                    </button>
-                    {isMe && (
-                      <button
-                        onClick={() => { onDelete(msg, true); setShowMenu(false) }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 transition-colors"
-                      >
-                        <Trash2 size={13} /> Unsend for everyone
-                      </button>
-                    )}
+                    <button onClick={() => { onReply(msg); setShowMenu(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 transition-colors"><Reply size={13} /> Reply</button>
+                    <button onClick={() => { onDelete(msg, false); setShowMenu(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 transition-colors"><Trash size={13} /> Delete for me</button>
+                    {isMe && <button onClick={() => { onDelete(msg, true); setShowMenu(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 transition-colors"><Trash2 size={13} /> Unsend for everyone</button>}
                   </div>
                 )}
               </div>
@@ -212,36 +156,24 @@ function MessageBubble({ msg, isMe, onReply, onReact, onDelete, currentUserId, p
           )}
         </div>
 
-        {/* Reactions display */}
         {totalReactions > 0 && !isDeleted && (
           <div className={`flex flex-wrap gap-1 mt-0.5 ${isMe ? 'justify-end' : 'justify-start'}`}>
             {reactionEntries.map(([emoji, reactors]) => (
-              <button
-                key={emoji}
-                onClick={() => onReact(msg, emoji)}
-                className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] border transition-all ${
-                  reactors.includes(currentUserId)
-                    ? 'bg-indigo-100 border-indigo-300 text-indigo-700'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                }`}
-              >
+              <button key={emoji} onClick={() => onReact(msg, emoji)}
+                className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] border transition-all ${reactors.includes(currentUserId) ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                 {emoji} <span className="text-[10px] font-semibold">{reactors.length}</span>
               </button>
             ))}
           </div>
         )}
 
-        {/* Time + tick */}
         <div className={`flex items-center gap-1 text-[9px] text-slate-400 px-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
           <span>{formatTime(msg.created_at)}</span>
           {isMe && !isDeleted && (
-            msg._sending
-              ? <Check size={12} className="text-slate-300" />
-              : msg.read
-                ? <CheckCheck size={12} className="text-indigo-500" />
-                : msg.delivered
-                  ? <CheckCheck size={12} className="text-slate-400" />
-                  : <Check size={12} className="text-slate-400" />
+            msg._sending ? <Check size={12} className="text-slate-300" />
+            : msg.read ? <CheckCheck size={12} className="text-indigo-500" />
+            : msg.delivered ? <CheckCheck size={12} className="text-slate-400" />
+            : <Check size={12} className="text-slate-400" />
           )}
         </div>
       </div>
@@ -249,7 +181,6 @@ function MessageBubble({ msg, isMe, onReply, onReact, onDelete, currentUserId, p
   )
 }
 
-// ---------- Delete Confirmation Modal ----------
 function DeleteConfirmModal({ onConfirm, onCancel, isOwnMessage }) {
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -257,33 +188,15 @@ function DeleteConfirmModal({ onConfirm, onCancel, isOwnMessage }) {
         <h3 className="text-sm font-bold text-slate-800 mb-1">Delete message?</h3>
         <p className="text-xs text-slate-500 mb-4">Choose how you want to delete this message.</p>
         <div className="space-y-2">
-          {isOwnMessage && (
-            <button
-              onClick={() => onConfirm(true)}
-              className="w-full py-2.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-all"
-            >
-              Unsend for everyone
-            </button>
-          )}
-          <button
-            onClick={() => onConfirm(false)}
-            className="w-full py-2.5 text-xs font-semibold text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-xl transition-all"
-          >
-            Delete for me
-          </button>
-          <button
-            onClick={onCancel}
-            className="w-full py-2.5 text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors"
-          >
-            Cancel
-          </button>
+          {isOwnMessage && <button onClick={() => onConfirm(true)} className="w-full py-2.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-all">Unsend for everyone</button>}
+          <button onClick={() => onConfirm(false)} className="w-full py-2.5 text-xs font-semibold text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-xl transition-all">Delete for me</button>
+          <button onClick={onCancel} className="w-full py-2.5 text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors">Cancel</button>
         </div>
       </div>
     </div>
   )
 }
 
-// ---------- Main Component ----------
 export default function Chats() {
   const { user: currentUser } = useAuth()
   const { subscribe, fetchNotifications } = useNotifications()
@@ -294,7 +207,6 @@ export default function Chats() {
   const [loading, setLoading] = useState(true)
   const [errorLoading, setErrorLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-
   const [selectedPeer, setSelectedPeer] = useState(null)
   const [messages, setMessages] = useState([])
   const [loadingMessages, setLoadingMessages] = useState(false)
@@ -302,10 +214,8 @@ export default function Chats() {
   const [uploading, setUploading] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showMobileChat, setShowMobileChat] = useState(false)
-
-  // New feature states
-  const [replyTo, setReplyTo] = useState(null)          // message being replied to
-  const [deleteTarget, setDeleteTarget] = useState(null) // {msg} for confirmation modal
+  const [replyTo, setReplyTo] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
 
   const messagesEndRef = useRef(null)
@@ -316,14 +226,13 @@ export default function Chats() {
   const prevMessagesLengthRef = useRef(0)
   const inputRef = useRef(null)
   const conversationsRef = useRef([])
-  const pendingDeliveryRef = useRef(new Set()) // message IDs that got delivery receipt before optimistic replaced  // always-current ref to avoid stale closures in WS handler
+  const pendingDeliveryRef = useRef(new Set())
 
   useEffect(() => { selectedPeerRef.current = selectedPeer }, [selectedPeer])
   useEffect(() => { conversationsRef.current = conversations }, [conversations])
 
   const peerIdOf = (p) => p?.id || p?._id
 
-  // ---------- Load conversations ----------
   const fetchConversations = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     setErrorLoading(false)
@@ -342,8 +251,7 @@ export default function Chats() {
       if (initialPeer) setSelectedPeer(initialPeer)
     } catch (e) {
       console.error('Failed to load conversations:', e)
-      if (!silent) setErrorLoading(true)
-      if (!silent) toast.error('Failed to load conversations. Please try again.')
+      if (!silent) { setErrorLoading(true); toast.error('Failed to load conversations. Please try again.') }
     } finally {
       if (!silent) setLoading(false)
     }
@@ -351,28 +259,21 @@ export default function Chats() {
 
   useEffect(() => { fetchConversations() }, [fetchConversations])
 
-  // Refresh conversations list every 15s to catch messages missed during WS gaps
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchConversations(true) // silent — no spinner
-    }, 15000)
+    const interval = setInterval(() => fetchConversations(true), 15000)
     return () => clearInterval(interval)
   }, [fetchConversations])
 
   useEffect(() => {
-    const handler = (e) => {
-      if (e.key === 'Escape') { setSelectedPeer(null); setShowMobileChat(false); setReplyTo(null) }
-    }
+    const handler = (e) => { if (e.key === 'Escape') { setSelectedPeer(null); setShowMobileChat(false); setReplyTo(null) } }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  // ---------- Load message history ----------
   useEffect(() => {
     if (!selectedPeer) { setMessages([]); return }
     const pid = peerIdOf(selectedPeer)
     setReplyTo(null)
-
     async function loadHistory() {
       setLoadingMessages(true)
       prevMessagesLengthRef.current = 0
@@ -392,28 +293,7 @@ export default function Chats() {
     loadHistory()
   }, [selectedPeer])
 
-  // Sync delivered/read status from conversations into open chat messages
-  // This handles the case where sidebar updates but messages state is stale
-  useEffect(() => {
-    if (!selectedPeer || messages.length === 0) return
-    const pid = peerIdOf(selectedPeer)
-    const convo = conversations.find(c => String(c.peer.id) === String(pid))
-    if (!convo?.last_message) return
-    const lastMsg = convo.last_message
-    if (!lastMsg.delivered && !lastMsg.read) return
-    setMessages(prev => prev.map(m => {
-      if (String(m.sender_id) !== String(currentUser?.id)) return m
-      // Sync delivered/read from the conversation's last_message if it matches or is newer
-      if (m.id === lastMsg.id) return { ...m, delivered: lastMsg.delivered || m.delivered, read: lastMsg.read || m.read }
-      // For older messages, if last_message is read then all prior messages are also read
-      if (lastMsg.read) return { ...m, delivered: true, read: true }
-      // If last_message is delivered, all prior messages are also delivered
-      if (lastMsg.delivered) return { ...m, delivered: true }
-      return m
-    }))
-  }, [conversations])
-  // Sync delivered/read status from conversations into open chat messages.
-  // Handles the case where sidebar updated (via WS or poll) but messages state is stale.
+  // Sync delivered/read from conversations into open chat messages
   useEffect(() => {
     if (!selectedPeer || messages.length === 0) return
     const pid = String(peerIdOf(selectedPeer))
@@ -439,26 +319,17 @@ export default function Chats() {
       if (isNew) c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' })
       else c.scrollTop = c.scrollHeight
     }
-    doScroll()
-    requestAnimationFrame(doScroll)
-    setTimeout(doScroll, 100)
-    setTimeout(doScroll, 300)
+    doScroll(); requestAnimationFrame(doScroll)
+    setTimeout(doScroll, 100); setTimeout(doScroll, 300)
   }, [messages])
 
   useEffect(() => {
     if (loadingMessages) return
-    const doScroll = () => {
-      const c = messagesContainerRef.current
-      if (!c) return
-      c.scrollTop = c.scrollHeight
-    }
-    doScroll()
-    requestAnimationFrame(doScroll)
-    setTimeout(doScroll, 100)
-    setTimeout(doScroll, 300)
+    const doScroll = () => { const c = messagesContainerRef.current; if (c) c.scrollTop = c.scrollHeight }
+    doScroll(); requestAnimationFrame(doScroll)
+    setTimeout(doScroll, 100); setTimeout(doScroll, 300)
   }, [loadingMessages])
 
-  // ---------- Polling fallback ----------
   useEffect(() => {
     if (!selectedPeer) return
     const pid = peerIdOf(selectedPeer)
@@ -467,15 +338,11 @@ export default function Chats() {
         const res = await api.get(`/api/messages/${pid}?limit=50`, { headers: authHeaders() })
         const fresh = res.data || []
         setMessages(prev => {
-          // Update if count changed OR last message ID changed
           const prevLast = prev[prev.length - 1]?.id
           const freshLast = fresh[fresh.length - 1]?.id
           if (fresh.length !== prev.length || freshLast !== prevLast) {
-            api.post(`/api/messages/${pid}/read`, {}, { headers: authHeaders() })
-              .then(() => fetchNotifications()).catch(() => {})
-            setConversations(c => c.map(conv =>
-              conv.peer.id === pid ? { ...conv, unread_count: 0 } : conv
-            ))
+            api.post(`/api/messages/${pid}/read`, {}, { headers: authHeaders() }).then(() => fetchNotifications()).catch(() => {})
+            setConversations(c => c.map(conv => conv.peer.id === pid ? { ...conv, unread_count: 0 } : conv))
             return fresh
           }
           return prev
@@ -485,47 +352,32 @@ export default function Chats() {
     return () => clearInterval(interval)
   }, [selectedPeer])
 
-  // ---------- WebSocket listener ----------
   useEffect(() => {
     if (!currentUser) return
     const unsubscribe = subscribe((data) => {
       const myId = String(currentUser.id)
       const activePeerId = peerIdOf(selectedPeerRef.current)
 
-      // ── New message ──
       if (data.event === 'new_message') {
         const msg = data.message
         const senderId = String(msg.sender_id)
         const receiverId = String(msg.receiver_id)
         const otherPersonId = senderId === myId ? receiverId : senderId
-
-        console.log('[WS] new_message | activePeerId:', activePeerId, '| otherPersonId:', otherPersonId, '| senderId:', senderId, '| myId:', myId)
-
-        const isForActiveChat = activePeerId &&          (otherPersonId === String(activePeerId) || senderId === String(activePeerId))
+        const isForActiveChat = activePeerId && (otherPersonId === String(activePeerId) || senderId === String(activePeerId))
 
         if (isForActiveChat) {
-          // Append message if not already there (dedup)
           setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg])
-          // Mark as read immediately since chat is open
-          api.post(`/api/messages/${activePeerId}/read`, {}, { headers: authHeaders() })
-            .then(() => fetchNotifications()).catch(() => {})
+          api.post(`/api/messages/${activePeerId}/read`, {}, { headers: authHeaders() }).then(() => fetchNotifications()).catch(() => {})
         } else {
-          // Toast — use ref so it's never stale
           const senderConvo = conversationsRef.current.find(c => String(c.peer.id) === otherPersonId)
           const senderName = senderConvo?.peer?.name || 'Someone'
           toast(
             (t) => (
-              <button
-                onClick={() => {
-                  if (senderConvo) setSelectedPeer(senderConvo.peer)
-                  toast.dismiss(t.id)
-                }}
-                className="flex items-center gap-2 text-left"
-              >
+              <button onClick={() => { if (senderConvo) { setSelectedPeer(senderConvo.peer); setShowMobileChat(true) }; toast.dismiss(t.id) }} className="flex items-center gap-2 text-left">
                 <span>💬</span>
                 <div>
                   <p className="text-xs font-semibold">{senderName}</p>
-                  <p className="text-[10px] opacity-80 truncate max-w-[160px]">{msg.text || '� Media'}</p>
+                  <p className="text-[10px] opacity-80 truncate max-w-[160px]">{msg.text || '📎 Media'}</p>
                 </div>
               </button>
             ),
@@ -533,156 +385,100 @@ export default function Chats() {
           )
         }
 
-        // Always update sidebar last_message and unread count
         setConversations(prev => {
           const idx = prev.findIndex(c => String(c.peer.id) === otherPersonId)
           if (idx === -1) return prev
           const updated = [...prev]
           const current = updated[idx]
           const isActive = activePeerId && String(activePeerId) === otherPersonId
-          updated[idx] = {
-            ...current,
-            last_message: msg,
-            unread_count: isActive ? 0 : (senderId !== myId ? current.unread_count + 1 : current.unread_count),
-          }
-          updated.sort((a, b) =>
-            new Date(b.last_message?.created_at || 0) - new Date(a.last_message?.created_at || 0)
-          )
+          updated[idx] = { ...current, last_message: msg, unread_count: isActive ? 0 : (senderId !== myId ? current.unread_count + 1 : current.unread_count) }
+          updated.sort((a, b) => new Date(b.last_message?.created_at || 0) - new Date(a.last_message?.created_at || 0))
           return updated
         })
       }
 
-      // ── Read receipt (receiver read our messages) ──
       if (data.event === 'read_receipt') {
-        // data.by = ID of the person who read our messages
-        // Update ticks in the currently open chat if it's that person
-        setMessages(prev => prev.map(m =>
-          String(m.sender_id) === myId ? { ...m, read: true } : m
-        ))
-        // Always update sidebar tick regardless of which chat is open
+        setMessages(prev => prev.map(m => String(m.sender_id) === myId ? { ...m, read: true } : m))
         setConversations(prev => prev.map(c =>
-          String(c.peer.id) === String(data.by) && c.last_message
-            ? { ...c, last_message: { ...c.last_message, read: true } }
-            : c
+          String(c.peer.id) === String(data.by) && c.last_message ? { ...c, last_message: { ...c.last_message, read: true } } : c
         ))
       }
 
-      // ── Delivery receipt (single message) ──
       if (data.event === 'delivery_receipt') {
         pendingDeliveryRef.current.add(data.message_id)
-        setMessages(prev => {
-          const found = prev.some(m => m.id === data.message_id)
-          if (!found) return prev
-          return prev.map(m => m.id === data.message_id ? { ...m, delivered: true } : m)
-        })
+        setMessages(prev => prev.map(m => m.id === data.message_id ? { ...m, delivered: true } : m))
         setConversations(prev => prev.map(c =>
-          c.last_message?.id === data.message_id
-            ? { ...c, last_message: { ...c.last_message, delivered: true } }
-            : c
+          c.last_message?.id === data.message_id ? { ...c, last_message: { ...c.last_message, delivered: true } } : c
         ))
       }
 
-      // ── Bulk delivery receipt (receiver came online) ──
       if (data.event === 'bulk_delivery_receipt') {
         const ids = new Set(data.message_ids)
         ids.forEach(id => pendingDeliveryRef.current.add(id))
         setMessages(prev => prev.map(m => ids.has(m.id) ? { ...m, delivered: true } : m))
         setConversations(prev => prev.map(c =>
-          c.last_message && ids.has(c.last_message.id)
-            ? { ...c, last_message: { ...c.last_message, delivered: true } }
-            : c
+          c.last_message && ids.has(c.last_message.id) ? { ...c, last_message: { ...c.last_message, delivered: true } } : c
         ))
       }
 
-      // ── Tab became visible — refresh to catch anything missed ──
       if (data.event === 'tab_visible') {
         fetchConversations(true)
         if (selectedPeerRef.current) {
           const pid = peerIdOf(selectedPeerRef.current)
           api.get(`/api/messages/${pid}?limit=50`, { headers: authHeaders() })
-            .then(res => {
-              setMessages(res.data || [])
-              api.post(`/api/messages/${pid}/read`, {}, { headers: authHeaders() })
-                .then(() => fetchNotifications()).catch(() => {})
-            }).catch(() => {})
+            .then(res => { setMessages(res.data || []); api.post(`/api/messages/${pid}/read`, {}, { headers: authHeaders() }).then(() => fetchNotifications()).catch(() => {}) })
+            .catch(() => {})
         }
       }
 
-      // ── Message deleted or reacted ──
       if (data.event === 'message_deleted' || data.event === 'message_reacted') {
-        const updated = data.message
-        setMessages(prev => prev.map(m => m.id === updated.id ? updated : m))
+        setMessages(prev => prev.map(m => m.id === data.message.id ? data.message : m))
       }
     })
     return () => unsubscribe()
-  }, [currentUser, subscribe])  // no conversations dependency — using ref instead
+  }, [currentUser, subscribe])
 
-  // ---------- Send text ----------
   const handleSend = async (e) => {
     if (e) e.preventDefault()
     if (!inputText.trim() || !selectedPeer) return
     const pid = peerIdOf(selectedPeer)
     const text = inputText.trim()
-    setInputText('')
-    setShowEmojiPicker(false)
+    setInputText(''); setShowEmojiPicker(false)
     const replyToId = replyTo?.id || null
     const replyToSnapshot = replyTo || null
     setReplyTo(null)
 
-    // Optimistic message — show instantly before server confirms
     const tempId = `temp_${Date.now()}`
-    const optimisticMsg = {
-      id: tempId,
-      sender_id: currentUser.id,
-      receiver_id: pid,
-      type: 'text',
-      text,
-      read: false,
-      created_at: new Date(Date.now() - 1).toISOString(), // 1ms in past so real msg always wins
-      reply_to: replyToSnapshot,
-      reactions: {},
-      deleted_for: [],
-      deleted_for_everyone: false,
-      _sending: true,
-    }
-    setMessages(prev => [...prev, optimisticMsg])
-    // Don't update sidebar with optimistic msg — wait for server confirmation
+    setMessages(prev => [...prev, {
+      id: tempId, sender_id: currentUser.id, receiver_id: pid, type: 'text', text,
+      read: false, created_at: new Date(Date.now() - 1).toISOString(),
+      reply_to: replyToSnapshot, reactions: {}, deleted_for: [], deleted_for_everyone: false, _sending: true,
+    }])
 
     try {
       const res = await api.post(`/api/messages/${pid}/text`, { text, reply_to_id: replyToId }, { headers: authHeaders() })
       const msg = res.data
-      // Replace optimistic message — apply any delivery receipt that arrived during the round trip
       const alreadyDelivered = pendingDeliveryRef.current.has(msg.id)
       if (alreadyDelivered) pendingDeliveryRef.current.delete(msg.id)
-      setMessages(prev => prev.map(m =>
-        m.id === tempId ? { ...msg, delivered: alreadyDelivered || msg.delivered } : m
-      ))
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...msg, delivered: alreadyDelivered || msg.delivered } : m))
       setConversations(prev => {
         const updated = prev.map(c => c.peer.id === pid ? { ...c, last_message: msg } : c)
         updated.sort((a, b) => new Date(b.last_message?.created_at || 0) - new Date(a.last_message?.created_at || 0))
         return updated
       })
     } catch (err) {
-      // Remove optimistic message on failure
       setMessages(prev => prev.filter(m => m.id !== tempId))
-      setConversations(prev => {
-        const updated = prev.map(c => c.peer.id === pid ? { ...c, last_message: c.last_message?.id === tempId ? null : c.last_message } : c)
-        return updated
-      })
       toast.error(err.response?.data?.detail || 'Failed to send message')
       setInputText(text)
     }
   }
 
-  // ---------- Send file ----------
   const handleFileSelected = async (e) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
+    const file = e.target.files?.[0]; e.target.value = ''
     if (!file || !selectedPeer) return
     if (file.size > 15 * 1024 * 1024) { toast.error('File must be under 15MB'); return }
     const pid = peerIdOf(selectedPeer)
-    const formData = new FormData()
-    formData.append('file', file)
+    const formData = new FormData(); formData.append('file', file)
     setUploading(true)
     try {
       const res = await api.post(`/api/messages/${pid}/upload`, formData, { headers: authHeaders() })
@@ -693,65 +489,41 @@ export default function Chats() {
         updated.sort((a, b) => new Date(b.last_message?.created_at || 0) - new Date(a.last_message?.created_at || 0))
         return updated
       })
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Upload failed')
-    } finally {
-      setUploading(false)
-    }
+    } catch (err) { toast.error(err.response?.data?.detail || 'Upload failed') }
+    finally { setUploading(false) }
   }
 
-  // ---------- Reply ----------
-  const handleReply = (msg) => {
-    setReplyTo(msg)
-    inputRef.current?.focus()
-  }
+  const handleReply = (msg) => { setReplyTo(msg); inputRef.current?.focus() }
 
-  // ---------- React ----------
   const handleReact = async (msg, emoji) => {
     if (!selectedPeer) return
     const pid = peerIdOf(selectedPeer)
     try {
       const res = await api.post(`/api/messages/${pid}/${msg.id}/react`, { emoji }, { headers: authHeaders() })
       setMessages(prev => prev.map(m => m.id === res.data.id ? res.data : m))
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to react')
-    }
+    } catch (err) { toast.error(err.response?.data?.detail || 'Failed to react') }
   }
 
-  // ---------- Delete message ----------
   const handleDeleteMessage = async (msg, forEveryone) => {
     if (!selectedPeer) return
-    const pid = peerIdOf(selectedPeer)
-    setDeleteTarget(null)
+    const pid = peerIdOf(selectedPeer); setDeleteTarget(null)
     try {
-      const res = await api.delete(`/api/messages/${pid}/${msg.id}`, {
-        headers: authHeaders(),
-        data: { delete_for_everyone: forEveryone },
-      })
-      if (forEveryone) {
-        setMessages(prev => prev.map(m => m.id === res.data.id ? res.data : m))
-      } else {
-        setMessages(prev => prev.filter(m => m.id !== msg.id))
-      }
+      const res = await api.delete(`/api/messages/${pid}/${msg.id}`, { headers: authHeaders(), data: { delete_for_everyone: forEveryone } })
+      if (forEveryone) setMessages(prev => prev.map(m => m.id === res.data.id ? res.data : m))
+      else setMessages(prev => prev.filter(m => m.id !== msg.id))
       toast.success(forEveryone ? 'Message unsent' : 'Message deleted')
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to delete message')
-    }
+    } catch (err) { toast.error(err.response?.data?.detail || 'Failed to delete message') }
   }
 
-  // ---------- Clear conversation ----------
   const handleClearConversation = async () => {
     if (!selectedPeer) return
-    const pid = peerIdOf(selectedPeer)
-    setShowClearConfirm(false)
+    const pid = peerIdOf(selectedPeer); setShowClearConfirm(false)
     try {
       await api.delete(`/api/messages/${pid}`, { headers: authHeaders() })
       setMessages([])
       setConversations(prev => prev.map(c => c.peer.id === pid ? { ...c, last_message: null, unread_count: 0 } : c))
       toast.success('Conversation cleared')
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to clear conversation')
-    }
+    } catch (err) { toast.error(err.response?.data?.detail || 'Failed to clear conversation') }
   }
 
   const filteredConversations = conversations.filter(c => {
@@ -760,266 +532,199 @@ export default function Chats() {
   })
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-6 flex flex-col overflow-x-hidden" style={{ height: 'calc(100dvh - 64px)' }}>
+    <div className="flex flex-col overflow-hidden" style={{ height: 'calc(100dvh - 64px)' }}>
+      <div className="px-3 sm:px-6 lg:px-8 py-3 lg:py-6 max-w-6xl mx-auto w-full flex flex-col flex-1 min-h-0 overflow-hidden">
 
-      {/* Delete message modal */}
-      {deleteTarget && (
-        <DeleteConfirmModal
-          isOwnMessage={deleteTarget.sender_id === currentUser?.id}
-          onConfirm={(forEveryone) => handleDeleteMessage(deleteTarget, forEveryone)}
-          onCancel={() => setDeleteTarget(null)}
-        />
-      )}
+        {deleteTarget && (
+          <DeleteConfirmModal
+            isOwnMessage={String(deleteTarget.sender_id) === String(currentUser?.id)}
+            onConfirm={(forEveryone) => handleDeleteMessage(deleteTarget, forEveryone)}
+            onCancel={() => setDeleteTarget(null)}
+          />
+        )}
 
-      {/* Clear conversation modal */}
-      {showClearConfirm && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-xs shadow-xl p-5">
-            <h3 className="text-sm font-bold text-slate-800 mb-1">Clear conversation?</h3>
-            <p className="text-xs text-slate-500 mb-4">This will remove all messages from your view. The other person can still see them.</p>
-            <div className="space-y-2">
-              <button onClick={handleClearConversation}
-                className="w-full py-2.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-all">
-                Clear for me
-              </button>
-              <button onClick={() => setShowClearConfirm(false)}
-                className="w-full py-2.5 text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors">
-                Cancel
-              </button>
+        {showClearConfirm && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl w-full max-w-xs shadow-xl p-5">
+              <h3 className="text-sm font-bold text-slate-800 mb-1">Clear conversation?</h3>
+              <p className="text-xs text-slate-500 mb-4">This removes all messages from your view only.</p>
+              <div className="space-y-2">
+                <button onClick={handleClearConversation} className="w-full py-2.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-all">Clear for me</button>
+                <button onClick={() => setShowClearConfirm(false)} className="w-full py-2.5 text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors">Cancel</button>
+              </div>
             </div>
           </div>
+        )}
+
+        <div className="flex items-center justify-between mb-3 shrink-0">
+          <div>
+            <h1 className="text-lg font-bold text-slate-800 flex items-center gap-2" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              <MessageSquare className="text-indigo-600" size={20} />
+              Messages
+            </h1>
+            <p className="text-xs text-slate-500 hidden sm:block">Coordinate and collaborate with your connections</p>
+          </div>
+          <Link to="/discover" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition-all whitespace-nowrap">
+            Discover Peers
+          </Link>
         </div>
-      )}
 
-      <div className="flex items-center justify-between mb-4 shrink-0">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-            <MessageSquare className="text-indigo-600" size={22} />
-            Messages
-          </h1>
-          <p className="text-xs text-slate-500">Coordinate and collaborate with your connections</p>
-        </div>
-        <Link to="/discover" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition-all">
-          Discover Peers
-        </Link>
-      </div>
+        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm flex-1 overflow-hidden flex min-h-0">
 
-      <div className="bg-white border border-slate-100 rounded-3xl shadow-sm flex-1 overflow-hidden flex min-h-0">
+          {/* Sidebar */}
+          <div className={`w-full md:w-72 border-r border-slate-100 flex flex-col min-h-0 bg-slate-50/20 ${showMobileChat ? 'hidden md:flex' : 'flex'}`}>
+            <div className="p-3 border-b border-slate-100/80 shrink-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                <input type="text" placeholder="Search connections..." value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-slate-100 border-none rounded-xl text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-slate-700" />
+              </div>
+            </div>
 
-        {/* Sidebar */}
-        <div className={`w-full md:w-80 border-r border-slate-100 flex flex-col min-h-0 bg-slate-50/20 ${showMobileChat ? 'hidden md:flex' : 'flex'}`}>
-          <div className="p-4 border-b border-slate-100/80 shrink-0">
-            <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input type="text" placeholder="Search connections..." value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-2xl text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-slate-700" />
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {loading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 animate-pulse">
+                    <div className="w-10 h-10 rounded-full bg-slate-200 shrink-0" />
+                    <div className="flex-1 space-y-2"><div className="w-1/2 h-3 bg-slate-200 rounded" /><div className="w-3/4 h-2.5 bg-slate-100 rounded" /></div>
+                  </div>
+                ))
+              ) : errorLoading ? (
+                <div className="py-12 px-4 text-center">
+                  <p className="text-xs text-slate-400 mb-3">Failed to load list</p>
+                  <button onClick={() => fetchConversations()} className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-semibold hover:bg-indigo-700 transition-colors">Retry</button>
+                </div>
+              ) : filteredConversations.length === 0 ? (
+                <div className="py-12 px-4 text-center text-slate-400">
+                  <Users className="mx-auto mb-2 text-slate-300" size={24} />
+                  <p className="text-xs font-medium text-slate-500">No connections found</p>
+                  <p className="text-[10px] mt-0.5 text-slate-400">{searchQuery ? 'Try another search' : 'Matches appear here once accepted'}</p>
+                </div>
+              ) : (
+                filteredConversations.map(convo => {
+                  const peer = convo.peer
+                  const isSelected = selectedPeer && peerIdOf(selectedPeer) === peer.id
+                  const lastMsg = convo.last_message
+                  let preview = 'Say hello 👋'
+                  if (lastMsg) {
+                    if (lastMsg.deleted_for_everyone) preview = '🚫 Message deleted'
+                    else if (lastMsg.type === 'text') preview = lastMsg.text
+                    else if (lastMsg.type === 'image') preview = '📷 Photo'
+                    else preview = `📎 ${lastMsg.file_name || 'File'}`
+                  }
+                  return (
+                    <button key={peer.id} onClick={() => { setSelectedPeer(peer); setShowMobileChat(true) }}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left group ${isSelected ? 'bg-indigo-50/80 text-indigo-900 border-l-4 border-indigo-600 rounded-l-none' : 'hover:bg-slate-50 text-slate-700'}`}>
+                      <div className="relative shrink-0">
+                        {renderPeerAvatar(peer, 'w-10 h-10', 'text-xs')}
+                        {convo.online && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-baseline mb-0.5 gap-1">
+                          <h4 className="text-xs font-semibold truncate group-hover:text-indigo-600 transition-colors">{peer.name || 'Anonymous Peer'}</h4>
+                          {lastMsg && <span className="text-[9px] text-slate-400 shrink-0">{formatConvoTime(lastMsg.created_at)}</span>}
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1 min-w-0 flex-1">
+                            {lastMsg && String(lastMsg.sender_id) === String(currentUser?.id) && !lastMsg.deleted_for_everyone && (
+                              <span className="shrink-0">
+                                {lastMsg._sending ? <Check size={12} className="text-slate-300" />
+                                  : lastMsg.read ? <CheckCheck size={12} className="text-indigo-500" />
+                                  : lastMsg.delivered ? <CheckCheck size={12} className="text-slate-400" />
+                                  : <Check size={12} className="text-slate-400" />}
+                              </span>
+                            )}
+                            <p className="text-[10px] text-slate-400 truncate">{preview}</p>
+                          </div>
+                          {convo.unread_count > 0 && (
+                            <span className="shrink-0 min-w-[16px] h-4 px-1 rounded-full bg-indigo-600 text-white text-[9px] font-bold flex items-center justify-center">{convo.unread_count}</span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })
+              )}
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {loading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 p-3 animate-pulse">
-                  <div className="w-10 h-10 rounded-full bg-slate-200" />
-                  <div className="flex-1 space-y-2">
-                    <div className="w-1/2 h-3.5 bg-slate-200 rounded" />
-                    <div className="w-3/4 h-2.5 bg-slate-100 rounded" />
+          {/* Chat frame */}
+          <div className={`flex-1 flex flex-col min-h-0 bg-white relative ${!showMobileChat ? 'hidden md:flex' : 'flex'}`}>
+            {selectedPeer ? (
+              <>
+                <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/20">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <button onClick={() => setShowMobileChat(false)} className="md:hidden p-1.5 hover:bg-slate-100 rounded-xl text-slate-500 shrink-0">
+                      <ArrowLeft size={18} />
+                    </button>
+                    <div className="shrink-0">{renderPeerAvatar(selectedPeer, 'w-9 h-9', 'text-xs')}</div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-bold text-slate-800 truncate leading-tight">{selectedPeer.name || 'Anonymous Peer'}</h3>
+                      <p className="text-[10px] text-slate-400 truncate leading-tight">{selectedPeer.university || 'No university'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center shrink-0 ml-1">
+                    <button onClick={() => setShowClearConfirm(true)} className="p-2 hover:bg-rose-50 rounded-xl text-slate-400 hover:text-rose-600 transition-all" title="Clear">
+                      <Trash2 size={14} />
+                    </button>
+                    <Link to={`/profile/user/${peerIdOf(selectedPeer)}`} className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-indigo-600 transition-all">
+                      <ExternalLink size={14} />
+                    </Link>
                   </div>
                 </div>
-              ))
-            ) : errorLoading ? (
-              <div className="py-12 px-4 text-center">
-                <p className="text-xs text-slate-400 mb-3">Failed to load list</p>
-                <button onClick={fetchConversations} className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-semibold hover:bg-indigo-700 transition-colors">Retry</button>
-              </div>
-            ) : filteredConversations.length === 0 ? (
-              <div className="py-12 px-4 text-center text-slate-400">
-                <Users className="mx-auto mb-2 text-slate-300" size={24} />
-                <p className="text-xs font-medium text-slate-500">No connections found</p>
-                <p className="text-[10px] mt-0.5 text-slate-400">{searchQuery ? 'Try another search query' : 'Matches will appear here once accepted'}</p>
-              </div>
+
+                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-slate-50/30">
+                  {loadingMessages ? (
+                    <div className="flex items-center justify-center h-full text-xs text-slate-400">Loading conversation...</div>
+                  ) : messages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center text-slate-400">
+                      <MessageSquare size={24} className="mb-2 text-slate-300" />
+                      <p className="text-xs">No messages yet. Say hello!</p>
+                    </div>
+                  ) : (
+                    messages.map(msg => (
+                      <MessageBubble key={msg.id} msg={msg}
+                        isMe={String(msg.sender_id) === String(currentUser.id)}
+                        currentUserId={String(currentUser.id)}
+                        peerName={selectedPeer.name}
+                        onReply={handleReply} onReact={handleReact}
+                        onDelete={(msg) => setDeleteTarget(msg)} />
+                    ))
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {showEmojiPicker && (
+                  <div className="absolute bottom-20 right-4 z-20">
+                    <EmojiPicker onEmojiClick={(d) => setInputText(prev => prev + d.emoji)} height={320} width={280} />
+                  </div>
+                )}
+
+                <ReplyPreview replyTo={replyTo} onCancel={() => setReplyTo(null)} peerName={selectedPeer.name} currentUserId={currentUser.id} />
+
+                <form onSubmit={handleSend} className="p-3 border-t border-slate-100 bg-white shrink-0 flex items-center gap-1.5">
+                  <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelected} />
+                  <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelected} />
+                  <button type="button" disabled={uploading} onClick={() => imageInputRef.current?.click()} className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-all shrink-0 disabled:opacity-40"><ImageIcon size={17} /></button>
+                  <button type="button" disabled={uploading} onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-all shrink-0 disabled:opacity-40"><Paperclip size={17} /></button>
+                  <button type="button" onClick={() => setShowEmojiPicker(v => !v)} className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-all shrink-0"><Smile size={17} /></button>
+                  <input ref={inputRef} type="text"
+                    placeholder={uploading ? 'Uploading...' : `Message ${selectedPeer.name?.split(' ')[0] || 'peer'}...`}
+                    value={inputText} onChange={e => setInputText(e.target.value)}
+                    onFocus={() => setShowEmojiPicker(false)} disabled={uploading}
+                    className="flex-1 px-3 py-2.5 bg-slate-100 border-none rounded-xl text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-700 transition-all disabled:opacity-60 min-w-0" />
+                  <button type="submit" disabled={!inputText.trim()} className="p-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl transition-all shadow-sm active:scale-95 shrink-0"><Send size={15} /></button>
+                </form>
+              </>
             ) : (
-              filteredConversations.map(convo => {
-                const peer = convo.peer
-                const isSelected = selectedPeer && peerIdOf(selectedPeer) === peer.id
-                const lastMsg = convo.last_message
-                let preview = 'Say hello 👋'
-                if (lastMsg) {
-                  if (lastMsg.deleted_for_everyone) preview = '🚫 Message deleted'
-                  else if (lastMsg.type === 'text') preview = lastMsg.text
-                  else if (lastMsg.type === 'image') preview = '📷 Photo'
-                  else preview = `📎 ${lastMsg.file_name || 'File'}`
-                }
-                return (
-                  <button key={peer.id}
-                    onClick={() => { setSelectedPeer(peer); setShowMobileChat(true) }}
-                    className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left group ${
-                      isSelected ? 'bg-indigo-50/80 text-indigo-900 border-l-4 border-indigo-600 rounded-l-none' : 'hover:bg-slate-50 text-slate-700'
-                    }`}>
-                    <div className="relative shrink-0">
-                      {renderPeerAvatar(peer, 'w-10 h-10', 'text-xs')}
-                      {convo.online && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-baseline mb-0.5 gap-2">
-                        <h4 className="text-xs font-semibold truncate group-hover:text-indigo-600 transition-colors">{peer.name || 'Anonymous Peer'}</h4>
-                        {lastMsg && <span className="text-[9px] text-slate-400 shrink-0">{formatConvoTime(lastMsg.created_at)}</span>}
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1 min-w-0 flex-1">
-                          {lastMsg && String(lastMsg.sender_id) === String(currentUser?.id) && !lastMsg.deleted_for_everyone && (
-                            <span className="shrink-0">
-                              {lastMsg._sending
-                                ? <Check size={12} className="text-slate-300" />
-                                : lastMsg.read
-                                  ? <CheckCheck size={12} className="text-indigo-500" />
-                                  : lastMsg.delivered
-                                    ? <CheckCheck size={12} className="text-slate-400" />
-                                    : <Check size={12} className="text-slate-400" />
-                              }
-                            </span>
-                          )}
-                          <p className="text-[10px] text-slate-400 truncate">{preview}</p>
-                        </div>
-                        {convo.unread_count > 0 && (
-                          <span className="shrink-0 min-w-[16px] h-4 px-1 rounded-full bg-indigo-600 text-white text-[9px] font-bold flex items-center justify-center">
-                            {convo.unread_count}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                )
-              })
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50/20">
+                <div className="w-16 h-16 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center mb-4"><MessageSquare size={28} /></div>
+                <h3 className="text-sm font-semibold text-slate-700">No active conversation</h3>
+                <p className="text-xs text-slate-400 max-w-xs mt-1 leading-relaxed">Choose a connection from the list or explore the Discover tab to start messaging new peers!</p>
+              </div>
             )}
           </div>
-        </div>
-
-        {/* Chat frame */}
-        <div className={`flex-1 flex flex-col min-h-0 bg-white relative ${!showMobileChat ? 'hidden md:flex' : 'flex'}`}>
-          {selectedPeer ? (
-            <>
-              {/* Chat header */}
-              <div className="p-3 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/20 overflow-hidden">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <button onClick={() => setShowMobileChat(false)} className="md:hidden p-1.5 hover:bg-slate-100 rounded-xl text-slate-500 shrink-0">
-                    <ArrowLeft size={18} />
-                  </button>
-                  <div className="relative shrink-0">{renderPeerAvatar(selectedPeer, 'w-9 h-9', 'text-xs')}</div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-bold text-slate-800 truncate">{selectedPeer.name || 'Anonymous Peer'}</h3>
-                    <p className="text-[10px] text-slate-400 flex items-center gap-1 truncate">
-                      <MapPin size={10} className="text-slate-300 shrink-0" />
-                      <span className="truncate">{selectedPeer.university || 'No university'}</span>
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 shrink-0 ml-2">
-                  <button
-                    onClick={() => setShowClearConfirm(true)}
-                    className="p-2 hover:bg-rose-50 rounded-xl text-slate-400 hover:text-rose-600 transition-all"
-                    title="Clear conversation"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                  <Link to={`/profile/user/${peerIdOf(selectedPeer)}`}
-                    className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-indigo-600 transition-all flex items-center gap-1 text-[10px] font-semibold">
-                    <span className="hidden sm:inline">Profile</span>
-                    <ExternalLink size={12} />
-                  </Link>
-                </div>
-              </div>
-
-              {/* Messages */}
-              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 bg-slate-50/30">
-                {loadingMessages ? (
-                  <div className="flex items-center justify-center h-full text-xs text-slate-400">Loading conversation...</div>
-                ) : messages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center text-slate-400">
-                    <MessageSquare size={24} className="mb-2 text-slate-300" />
-                    <p className="text-xs">No messages yet. Say hello!</p>
-                  </div>
-                ) : (
-                  messages.map(msg => (
-                    <MessageBubble
-                      key={msg.id}
-                      msg={msg}
-                      isMe={String(msg.sender_id) === String(currentUser.id)}
-                      currentUserId={String(currentUser.id)}
-                      peerName={selectedPeer.name}
-                      onReply={handleReply}
-                      onReact={handleReact}
-                      onDelete={(msg) => setDeleteTarget(msg)}
-                    />
-                  ))
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Emoji picker */}
-              {showEmojiPicker && (
-                <div className="absolute bottom-20 right-4 z-20">
-                  <EmojiPicker
-                    onEmojiClick={(emojiData) => setInputText(prev => prev + emojiData.emoji)}
-                    height={350} width={300}
-                  />
-                </div>
-              )}
-
-              {/* Reply preview */}
-              <ReplyPreview
-                replyTo={replyTo}
-                onCancel={() => setReplyTo(null)}
-                peerName={selectedPeer.name}
-                currentUserId={currentUser.id}
-              />
-
-              {/* Input bar */}
-              <form onSubmit={handleSend} className="p-4 border-t border-slate-100 bg-white shrink-0 flex items-center gap-2">
-                <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelected} />
-                <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelected} />
-
-                <button type="button" disabled={uploading} onClick={() => imageInputRef.current?.click()}
-                  className="p-2.5 text-slate-500 hover:bg-slate-100 rounded-2xl transition-all shrink-0 disabled:opacity-40" title="Send image">
-                  <ImageIcon size={17} />
-                </button>
-                <button type="button" disabled={uploading} onClick={() => fileInputRef.current?.click()}
-                  className="p-2.5 text-slate-500 hover:bg-slate-100 rounded-2xl transition-all shrink-0 disabled:opacity-40" title="Send file">
-                  <Paperclip size={17} />
-                </button>
-                <button type="button" onClick={() => setShowEmojiPicker(v => !v)}
-                  className="p-2.5 text-slate-500 hover:bg-slate-100 rounded-2xl transition-all shrink-0" title="Emoji">
-                  <Smile size={17} />
-                </button>
-
-                <input
-                  ref={inputRef}
-                  type="text"
-                  placeholder={uploading ? 'Uploading...' : `Message ${selectedPeer.name || 'peer'}...`}
-                  value={inputText}
-                  onChange={e => setInputText(e.target.value)}
-                  onFocus={() => setShowEmojiPicker(false)}
-                  disabled={uploading}
-                  className="flex-1 px-4 py-2.5 bg-slate-100 border-none rounded-2xl text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-700 transition-all disabled:opacity-60"
-                />
-                <button type="submit" disabled={!inputText.trim()}
-                  className="p-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white rounded-2xl transition-all shadow-sm active:scale-95 shrink-0">
-                  <Send size={15} />
-                </button>
-              </form>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50/20">
-              <div className="w-16 h-16 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center mb-4">
-                <MessageSquare size={28} />
-              </div>
-              <h3 className="text-sm font-semibold text-slate-700">No active conversation</h3>
-              <p className="text-xs text-slate-400 max-w-xs mt-1 leading-relaxed">
-                Choose a connection from the list or explore the Discover tab to start messaging new peers!
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>
