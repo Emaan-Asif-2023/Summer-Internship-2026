@@ -47,6 +47,11 @@ def serialize_message(m: dict) -> dict:
         "read": m.get("read", False),
         "read_at": m.get("read_at"),
         "created_at": m["created_at"],
+        # New fields
+        "reply_to": m.get("reply_to"),        # {id, sender_id, text, type}
+        "reactions": m.get("reactions", {}),  # {emoji: [user_id, ...]}
+        "deleted_for": m.get("deleted_for", []),  # list of user_id strings
+        "deleted_for_everyone": m.get("deleted_for_everyone", False),
     }
 
 
@@ -77,6 +82,7 @@ async def ensure_connected(db, user_id: ObjectId, peer_id: ObjectId):
 
 class SendTextPayload(BaseModel):
     text: str
+    reply_to_id: Optional[str] = None  # message id being replied to
 
 
 # ---------- Conversations list ----------
@@ -147,6 +153,8 @@ async def get_message_history(
     await ensure_connected(db, user_id, pid)
 
     query = {"conversation_key": conversation_key(user_id, pid)}
+    # Exclude messages soft-deleted for this user
+    query["deleted_for"] = {"$ne": str(user_id)}
     if before:
         try:
             before_msg = await db.messages.find_one({"_id": ObjectId(before)})
@@ -178,6 +186,22 @@ async def send_text_message(
 
     now = datetime.utcnow()
     text = payload.text.strip()
+
+    # Resolve reply_to snapshot
+    reply_to_snapshot = None
+    if payload.reply_to_id:
+        try:
+            original = await db.messages.find_one({"_id": ObjectId(payload.reply_to_id)})
+            if original:
+                reply_to_snapshot = {
+                    "id": str(original["_id"]),
+                    "sender_id": str(original["sender_id"]),
+                    "text": original.get("text") or ("📷 Photo" if original.get("type") == "image" else f"📎 {original.get('file_name', 'File')}"),
+                    "type": original.get("type", "text"),
+                }
+        except Exception:
+            pass
+
     msg = {
         "sender_id": user_id,
         "receiver_id": pid,
@@ -186,6 +210,10 @@ async def send_text_message(
         "text": text,
         "read": False,
         "created_at": now,
+        "reply_to": reply_to_snapshot,
+        "reactions": {},
+        "deleted_for": [],
+        "deleted_for_everyone": False,
     }
     result = await db.messages.insert_one(msg)
     msg["_id"] = result.inserted_id
@@ -274,6 +302,146 @@ async def mark_conversation_read(
         })
     await mark_message_notification_read(db, recipient_id=user_id, sender_id=pid)
     return {"marked_read": result.modified_count}
+
+
+# ---------- Delete a single message ----------
+
+class DeleteMessagePayload(BaseModel):
+    delete_for_everyone: bool = False  # True = unsend for both; False = delete only for me
+
+
+@router.delete("/{peer_id}/{message_id}")
+async def delete_message(
+    peer_id: str,
+    message_id: str,
+    payload: DeleteMessagePayload,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    user_id = current_user["_id"]
+    pid = await get_peer_or_404(db, peer_id)
+
+    try:
+        mid = ObjectId(message_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid message_id")
+
+    msg = await db.messages.find_one({"_id": mid})
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    # Only sender can delete for everyone; anyone in the conversation can delete for themselves
+    if msg["conversation_key"] != conversation_key(user_id, pid):
+        raise HTTPException(status_code=403, detail="Not your conversation")
+
+    if payload.delete_for_everyone:
+        if msg["sender_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Only the sender can unsend a message")
+        await db.messages.update_one(
+            {"_id": mid},
+            {"$set": {
+                "deleted_for_everyone": True,
+                "text": None,
+                "file_url": None,
+                "file_name": None,
+            }}
+        )
+        updated = await db.messages.find_one({"_id": mid})
+        serialized = serialize_message(updated)
+        # Notify the other person so their UI updates too
+        await manager.send_to_user(str(pid), {"event": "message_deleted", "message": serialized})
+    else:
+        # Soft-delete: add user_id to deleted_for list
+        await db.messages.update_one(
+            {"_id": mid},
+            {"$addToSet": {"deleted_for": str(user_id)}}
+        )
+        updated = await db.messages.find_one({"_id": mid})
+        serialized = serialize_message(updated)
+
+    return serialized
+
+
+# ---------- React to a message ----------
+
+class ReactPayload(BaseModel):
+    emoji: str  # e.g. "👍", "❤️", "😂"
+
+
+@router.post("/{peer_id}/{message_id}/react")
+async def react_to_message(
+    peer_id: str,
+    message_id: str,
+    payload: ReactPayload,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    user_id = current_user["_id"]
+    pid = await get_peer_or_404(db, peer_id)
+
+    try:
+        mid = ObjectId(message_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid message_id")
+
+    msg = await db.messages.find_one({"_id": mid})
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    if msg["conversation_key"] != conversation_key(user_id, pid):
+        raise HTTPException(status_code=403, detail="Not your conversation")
+
+    emoji = payload.emoji.strip()
+    uid_str = str(user_id)
+    reactions = msg.get("reactions", {})
+
+    # Toggle: if user already reacted with this emoji, remove it; else add it
+    current_reactors = reactions.get(emoji, [])
+    if uid_str in current_reactors:
+        # Remove reaction
+        current_reactors.remove(uid_str)
+        if current_reactors:
+            reactions[emoji] = current_reactors
+        else:
+            reactions.pop(emoji, None)
+    else:
+        # Remove any previous reaction by this user (one reaction per user)
+        for e in list(reactions.keys()):
+            if uid_str in reactions[e]:
+                reactions[e].remove(uid_str)
+                if not reactions[e]:
+                    del reactions[e]
+        # Add new reaction
+        reactions.setdefault(emoji, []).append(uid_str)
+
+    await db.messages.update_one({"_id": mid}, {"$set": {"reactions": reactions}})
+    updated = await db.messages.find_one({"_id": mid})
+    serialized = serialize_message(updated)
+
+    # Push reaction update to the other person
+    await manager.send_to_user(str(pid), {"event": "message_reacted", "message": serialized})
+    return serialized
+
+
+# ---------- Delete entire conversation (for current user only) ----------
+
+@router.delete("/{peer_id}")
+async def delete_conversation(
+    peer_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    user_id = current_user["_id"]
+    pid = await get_peer_or_404(db, peer_id)
+    uid_str = str(user_id)
+    conv_key = conversation_key(user_id, pid)
+
+    # Soft-delete: add user to deleted_for on every message in this conversation
+    await db.messages.update_many(
+        {"conversation_key": conv_key, "deleted_for": {"$ne": uid_str}},
+        {"$addToSet": {"deleted_for": uid_str}}
+    )
+    return {"message": "Conversation cleared"}
 
 
 # ---------- WebSocket ----------
