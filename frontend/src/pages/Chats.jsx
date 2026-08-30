@@ -476,18 +476,13 @@ export default function Chats() {
         // Always update sidebar last_message and unread count
         setConversations(prev => {
           const idx = prev.findIndex(c => String(c.peer.id) === otherPersonId)
-          console.log('[SIDEBAR] new_message from', otherPersonId, '— found at idx', idx, '— convos:', prev.map(c => c.peer.id))
           if (idx === -1) { fetchConversations(); return prev }
           const updated = [...prev]
           const current = updated[idx]
           const isActive = activePeerId && String(activePeerId) === otherPersonId
-          const incomingTime = new Date(msg.created_at).getTime()
-          const currentTime = current.last_message
-            ? new Date(current.last_message.created_at).getTime()
-            : 0
           updated[idx] = {
             ...current,
-            last_message: incomingTime >= currentTime ? msg : current.last_message,
+            last_message: msg,
             unread_count: isActive
               ? 0
               : senderId !== myId
@@ -576,12 +571,7 @@ export default function Chats() {
       _sending: true,
     }
     setMessages(prev => [...prev, optimisticMsg])
-    // Update sidebar immediately with latest message
-    setConversations(prev => {
-      const updated = prev.map(c => c.peer.id === pid ? { ...c, last_message: optimisticMsg } : c)
-      updated.sort((a, b) => new Date(b.last_message?.created_at || 0) - new Date(a.last_message?.created_at || 0))
-      return updated
-    })
+    // Don't update sidebar with optimistic msg — wait for server confirmation
 
     try {
       const res = await api.post(`/api/messages/${pid}/text`, { text, reply_to_id: replyToId }, { headers: authHeaders() })
