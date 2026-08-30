@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from typing import Optional, List
 from bson import ObjectId
 from app.database import get_database
+import re
 
 router = APIRouter(tags=["discover"])
 
@@ -206,10 +207,9 @@ async def search_students(
             {"university": {"$regex": search, "$options": "i"}},
         ]
     if department:
-        q["department"] = {"$regex": department, "$options": "i"}
+        q["department"] = {"$regex": re.escape(department), "$options": "i"}
     if university:
-        # Use contains match — university names are long and may have minor formatting differences
-        q["university"] = {"$regex": university, "$options": "i"}
+        q["university"] = {"$regex": re.escape(university), "$options": "i"}
     if semester is not None:
         q["semester"] = {"$in": [semester, str(semester)]}
     if skills:

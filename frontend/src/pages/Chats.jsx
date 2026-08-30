@@ -235,10 +235,10 @@ function MessageBubble({ msg, isMe, onReply, onReact, onDelete, currentUserId, p
           <span>{formatTime(msg.created_at)}</span>
           {isMe && !isDeleted && (
             msg._sending
-              ? <span className="text-[9px] text-slate-300">🕐</span>
+              ? <Check size={12} className="text-slate-300" />          // single grey = sending
               : msg.read
-                ? <CheckCheck size={12} className="text-indigo-500" />
-                : <Check size={12} />
+                ? <CheckCheck size={12} className="text-indigo-500" />  // double blue = read
+                : <CheckCheck size={12} className="text-slate-400" />   // double grey = delivered
           )}
         </div>
       </div>
@@ -461,7 +461,11 @@ export default function Chats() {
             String(c.peer.id) === String(activePeerId) ? { ...c, unread_count: 0 } : c
           ))
         } else {
-          toast('New message', { icon: '💬', style: { borderRadius: '10px', background: '#334155', color: '#fff' } })
+          // Show toast with sender name if we can find them
+          const senderConvo = conversations.find(c => String(c.peer.id) === otherPersonId)
+          toast(senderConvo ? `New message from ${senderConvo.peer.name}` : 'New message', {
+            icon: '💬', style: { borderRadius: '10px', background: '#334155', color: '#fff' }
+          })
         }
 
         // Always update sidebar last_message
@@ -758,7 +762,12 @@ export default function Chats() {
                         <div className="flex items-center gap-1 min-w-0 flex-1">
                           {lastMsg && String(lastMsg.sender_id) === String(currentUser?.id) && !lastMsg.deleted_for_everyone && (
                             <span className="shrink-0">
-                              {lastMsg.read ? <CheckCheck size={12} className="text-indigo-500" /> : <Check size={12} className="text-slate-400" />}
+                              {lastMsg._sending
+                                ? <Check size={12} className="text-slate-300" />
+                                : lastMsg.read
+                                  ? <CheckCheck size={12} className="text-indigo-500" />
+                                  : <CheckCheck size={12} className="text-slate-400" />
+                              }
                             </span>
                           )}
                           <p className="text-[10px] text-slate-400 truncate">{preview}</p>
