@@ -239,16 +239,25 @@ export default function Chats() {
     try {
       const res = await api.get('/api/messages/conversations', { headers: authHeaders() })
       const convos = res.data || []
-      setConversations(convos)
-      let initialPeer = null
-      if (location.state?.startChatWith) {
-        const routePeer = location.state.startChatWith
-        const routeId = routePeer.id || routePeer._id
-        const found = convos.find(c => c.peer.id === routeId)
-        initialPeer = found ? found.peer : routePeer
-        setShowMobileChat(true)
+      if (silent) {
+        // Only update state if something actually changed — prevents unnecessary re-renders
+        setConversations(prev => {
+          const prevJson = JSON.stringify(prev.map(c => ({ id: c.peer.id, last: c.last_message?.id, unread: c.unread_count })))
+          const nextJson = JSON.stringify(convos.map(c => ({ id: c.peer.id, last: c.last_message?.id, unread: c.unread_count })))
+          return prevJson === nextJson ? prev : convos
+        })
+      } else {
+        setConversations(convos)
+        let initialPeer = null
+        if (location.state?.startChatWith) {
+          const routePeer = location.state.startChatWith
+          const routeId = routePeer.id || routePeer._id
+          const found = convos.find(c => c.peer.id === routeId)
+          initialPeer = found ? found.peer : routePeer
+          setShowMobileChat(true)
+        }
+        if (initialPeer) setSelectedPeer(initialPeer)
       }
-      if (initialPeer) setSelectedPeer(initialPeer)
     } catch (e) {
       console.error('Failed to load conversations:', e)
       if (!silent) { setErrorLoading(true); toast.error('Failed to load conversations. Please try again.') }
@@ -260,7 +269,7 @@ export default function Chats() {
   useEffect(() => { fetchConversations() }, [fetchConversations])
 
   useEffect(() => {
-    const interval = setInterval(() => fetchConversations(true), 15000)
+    const interval = setInterval(() => fetchConversations(true), 30000) // every 30s, silent
     return () => clearInterval(interval)
   }, [fetchConversations])
 
@@ -313,14 +322,22 @@ export default function Chats() {
     if (messages.length === 0) return
     const isNew = messages.length > prevMessagesLengthRef.current && prevMessagesLengthRef.current > 0
     prevMessagesLengthRef.current = messages.length
-    const doScroll = () => {
-      const c = messagesContainerRef.current
-      if (!c) return
-      if (isNew) c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' })
-      else c.scrollTop = c.scrollHeight
+    const c = messagesContainerRef.current
+    if (!c) return
+
+    if (!isNew) {
+      // Initial load — always jump to bottom
+      c.scrollTop = c.scrollHeight
+      requestAnimationFrame(() => { c.scrollTop = c.scrollHeight })
+      setTimeout(() => { c.scrollTop = c.scrollHeight }, 150)
+      return
     }
-    doScroll(); requestAnimationFrame(doScroll)
-    setTimeout(doScroll, 100); setTimeout(doScroll, 300)
+
+    // New message — only scroll if user is near the bottom (within 150px)
+    const isNearBottom = c.scrollHeight - c.scrollTop - c.clientHeight < 150
+    if (isNearBottom) {
+      c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' })
+    }
   }, [messages])
 
   useEffect(() => {
@@ -348,7 +365,7 @@ export default function Chats() {
           return prev
         })
       } catch { /* silent */ }
-    }, 10000)
+    }, 20000) // every 20s fallback
     return () => clearInterval(interval)
   }, [selectedPeer])
 
