@@ -200,7 +200,7 @@ export default function PublicProfile() {
             {profile?.email}
           </p>
           <p className="text-xs text-slate-400">
-            Member since {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'N/A'}
+            Member since {profile?.created_at ? new Date(profile.created_at.endsWith('Z') ? profile.created_at : profile.created_at + 'Z').toLocaleDateString() : 'N/A'}
           </p>
         </div>
 

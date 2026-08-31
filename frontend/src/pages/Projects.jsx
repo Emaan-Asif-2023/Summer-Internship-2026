@@ -56,7 +56,8 @@ const TABS = [
 
 function timeAgo(dateStr) {
   if (!dateStr) return ''
-  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000
+  const utcStr = dateStr.endsWith('Z') ? dateStr : dateStr + 'Z'
+  const diff = (Date.now() - new Date(utcStr).getTime()) / 1000
   if (diff < 60) return 'just now'
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`

@@ -51,13 +51,17 @@ const renderPeerAvatar = (peer, sizeClass = 'w-10 h-10', textClass = 'text-xs') 
 }
 
 const formatTime = (iso) => {
-  try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) }
+  try {
+    const utc = iso && !iso.endsWith('Z') ? iso + 'Z' : iso
+    return new Date(utc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+  }
   catch { return '' }
 }
 
 const formatConvoTime = (iso) => {
   if (!iso) return ''
-  const d = new Date(iso)
+  const utc = iso.endsWith('Z') ? iso : iso + 'Z'
+  const d = new Date(utc)
   const now = new Date()
   if (d.toDateString() === now.toDateString())
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })

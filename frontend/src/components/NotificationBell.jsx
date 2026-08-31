@@ -26,7 +26,9 @@ const ICON_COLORS = {
 }
 
 function timeAgo(dateStr) {
-  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000
+  // Ensure UTC parsing by appending Z if not present
+  const utcStr = dateStr && !dateStr.endsWith('Z') ? dateStr + 'Z' : dateStr
+  const diff = (Date.now() - new Date(utcStr).getTime()) / 1000
   if (diff < 60) return 'just now'
   if (diff < 3600) return `${Math.floor(diff / 60)}m`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h`

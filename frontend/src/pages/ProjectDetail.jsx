@@ -238,7 +238,7 @@ export default function ProjectDetail() {
               </span>
               <span className="flex items-center gap-1">
                 <Calendar size={13} className="text-slate-300" />
-                Created {new Date(project.created_at).toLocaleDateString()}
+                Created {new Date(project.created_at.endsWith('Z') ? project.created_at : project.created_at + 'Z').toLocaleDateString()}
               </span>
             </div>
           </div>

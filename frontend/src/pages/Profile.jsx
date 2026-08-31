@@ -534,7 +534,7 @@ export default function Profile() {
             {user?.email}
           </p>
           <p className="text-xs text-slate-400">
-            Member since {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
+            Member since {user?.created_at ? new Date(user.created_at.endsWith('Z') ? user.created_at : user.created_at + 'Z').toLocaleDateString() : 'N/A'}
           </p>
         </div>
 

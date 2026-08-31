@@ -23,7 +23,8 @@ const AVATAR_COLORS = [
 const getInitials = (name) => (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 
 function timeAgo(dateStr) {
-  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000
+  const utcStr = dateStr && !dateStr.endsWith('Z') ? dateStr + 'Z' : dateStr
+  const diff = (Date.now() - new Date(utcStr).getTime()) / 1000
   if (diff < 60) return 'just now'
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
